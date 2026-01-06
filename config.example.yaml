@@ -1,0 +1,33 @@
+# Configuration for Trello to GitHub Migration (EXAMPLE)
+# Copy this file to config.yaml and fill in your values.
+
+# 1. Token Access
+tokens:
+  trello:
+    api_key: "YOUR_TRELLO_API_KEY"
+    token: "YOUR_TRELLO_TOKEN"
+  github:
+    token: "YOUR_GITHUB_TOKEN" # Optional if using 'gh' CLI authenticated session
+
+# 2. Trello Boards to Backup
+trello_boards:
+  - name: "My Board Name"
+    id: "BOARD_ID_HERE"
+    backup_file: "trello_backup.json"
+
+# 3. GitHub Project Configuration
+github_projects:
+  - trello_board_name: "My Board Name"
+    owner: "github-user"
+    repo: "repo-name"
+    project_number: 1 
+    
+    # Identify which columns/lists should be migrated
+    import_lists:
+      - "To Do"
+      - "Doing"
+      - "Done"
+
+# Options
+options:
+  rate_limit_delay: 2
