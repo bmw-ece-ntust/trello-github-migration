@@ -1,0 +1,13 @@
+# Ignore configuration with secrets
+config.yaml
+
+# Ignore data files
+*.json
+*.csv
+*.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
