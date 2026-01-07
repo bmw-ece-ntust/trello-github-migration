@@ -1,10 +1,10 @@
 import json
 import yaml
-import requests
 import subprocess
 import time
 import os
 import sys
+import re
 from datetime import datetime
 
 # --- Configuration Loading ---
@@ -15,56 +15,17 @@ def load_config(config_path="config.yaml"):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-# --- Trello API Functions ---
-class TrelloClient:
-    def __init__(self, api_key, token):
-        self.api_key = api_key
-        self.token = token
-        self.base_url = "https://api.trello.com/1"
-
-    def _request(self, method, endpoint, params=None):
-        if params is None:
-            params = {}
-        params['key'] = self.api_key
-        params['token'] = self.token
-        
-        url = f"{self.base_url}{endpoint}"
-        response = requests.request(method, url, params=params)
-        response.raise_for_status()
-        return response.json()
-
-    def get_board_data(self, board_id):
-        # Fetch Lists
-        print(f"Fetching lists for board {board_id}...")
-        lists = self._request("GET", f"/boards/{board_id}/lists", params={"filter": "all"})
-        
-        # Fetch Cards with details
-        print(f"Fetching cards for board {board_id}...")
-        cards = self._request("GET", f"/boards/{board_id}/cards", params={
-            "actions": "commentCard", # Get comments
-            "attachments": "true",
-            "checklists": "all",
-            "pluginData": "true",
-            "customFieldItems": "true"
-        })
-        
-        return {
-            "id": board_id,
-            "fetched_at": datetime.now().isoformat(),
-            "lists": lists,
-            "cards": cards
-        }
-
 # --- GitHub CLI Wrapper ---
 class GitHubClient:
-    def __init__(self, owner, repo, project_number, token=None):
-        self.owner = owner
-        self.repo = repo
-        self.project_number = project_number
-        self.token = token
+    def __init__(self, token=None):
         self.env = os.environ.copy()
-        if token:
+        # Only set GH_TOKEN if a specific token is provided in config and valid.
+        # Otherwise, rely on the system's 'gh' CLI authentication.
+        if token and token != "YOUR_GITHUB_TOKEN" and not token.startswith("github_pat_EXAMPLE"):
             self.env["GH_TOKEN"] = token
+        else:
+            # Check if GH_TOKEN is in environment already, if not, we assume 'gh auth login' was run
+            pass 
 
     def run_gh_cmd(self, args, max_retries=5):
         delay = 2
@@ -76,211 +37,966 @@ class GitHubClient:
                 if result.returncode == 0:
                     return result.stdout.strip()
                 
-                err = result.stderr.lower()
-                if "rate limit" in err or "abuse" in err or "submitted too quickly" in err:
-                    print(f"  [Rate Limit] Waiting {delay}s...")
+                err = result.stderr.strip()
+                if "rate limit" in err.lower() or "abuse" in err.lower() or "submitted too quickly" in err.lower():
+                    print(f"  [GH Rate Limit] Waiting {delay}s...")
                     time.sleep(delay)
                     delay *= 2
                     continue
                 else:
-                    print(f"  [Error] gh command failed: {result.stderr.strip()}")
-                    return None
+                    # Log the error for debugging
+                    # if args[0] != "project" and args[0] != "api": # Reduce noise
+                    print(f"  [GH Error] Command failed: gh {' '.join(args)}")
+                    print(f"  [GH Error] Details: {err}")
+                    return None # Let caller handle non-retryable errors
             except Exception as e:
                 print(f"  [Exception] {e}")
                 time.sleep(delay)
         return None
+    
+    def run_graphql(self, query, variables=None):
+        # Execute raw GraphQL
+        args = ["api", "graphql", "-f", f"query={query}"]
+        if variables:
+            for k, v in variables.items():
+                # Pass variables as JSON fields
+                # gh api -F name=value is for strings, using -F for complex json is tricky.
+                # simpler to use `gh api graphql -f query=... -F var=val`?
+                # For complex inputs (lists of objects), we usually need to pipe JSON to stdin.
+                pass
+        
+        # Using subprocess with input for complex vars
+        cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
+        
+        # Serialize variables
+        json_vars = json.dumps(variables) if variables else "{}"
+        # For gh api, passing JSON vars is best done via --field 'variables=JSON' ? No.
+        # gh api graphql -F query='...' -f variables='{"x":1}'
+        
+        cmd = ["gh", "api", "graphql", "-f", f"query={query}", "-f", f"variables={json_vars}"]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, env=self.env)
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        else:
+            print(f"  [GraphQL Error] {result.stderr}")
+            return None
 
-    def create_label(self, name, color="ededed", description="Imported from Trello"):
-        print(f"  Ensuring label exists: {name}")
-        # Check if exists first to avoid error spam? functionality is 'create' which fails if exists usually, 
-        # but 'label create' has --force or we can just ignore error.
-        self.run_gh_cmd([
+    def ensure_project_status_options(self, project_node_id, status_field_id, new_options):
+        # 1. Fetch current options with full details
+        query = """
+        query($nodeId: ID!) {
+          node(id: $nodeId) {
+            ... on ProjectV2SingleSelectField {
+              options {
+                id
+                name
+                color
+                description
+              }
+            }
+          }
+        }
+        """
+        res = self.run_graphql(query, {"nodeId": status_field_id})
+        if not res or 'data' not in res or not res['data']['node']:
+            print("  [Error] Failed to fetch current field options.")
+            return None
+
+        current_options = res['data']['node']['options']
+        existing_names = {opt['name'].lower() for opt in current_options}
+        
+        # 2. Identify missing options
+        missing = [name for name in new_options if name.lower() not in existing_names]
+        
+        if not missing:
+            return {opt['name'].lower(): opt['id'] for opt in current_options}
+
+        print(f"  [Project] Creating missing columns: {missing}")
+        
+        # 3. Construct Payload
+        # We must resend EXISTING options (with IDs) to keep them, plus NEW options (no IDs)
+        # Note: 'id' is required for existing options to update/keep them? 
+        # API says: "If an id is provided, the option with that id will be updated. If no id is provided, a new option will be created."
+        # If we omit an existing option, IS IT DELETED? Yes, normally in "set" operations.
+        # We must check if updateProjectV2Field is a SET or MERGE. 
+        # Documentation: "The options to set for the single select field." -> Implies SET.
+        
+        final_options_payload = []
+        
+        # Add existing
+        for opt in current_options:
+            final_options_payload.append({
+                "id": opt['id'],
+                "name": opt['name'],
+                "color": opt['color'],
+                "description": opt['description']
+            })
+            
+        # Add new (Assign random colors or cycle)
+        colors = ["BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "GRAY"]
+        for i, name in enumerate(missing):
+            final_options_payload.append({
+                "name": name,
+                "color": colors[i % len(colors)],
+                "description": "Trello Import List"
+            })
+            
+        # 4. Mutation
+        mutation = """
+        mutation($fieldId: ID!, $options: [ProjectV2SingleSelectOptionInput!]!) {
+          updateProjectV2Field(input: {
+            fieldId: $fieldId,
+            singleSelectOptions: $options
+          }) {
+            projectV2Field {
+              ... on ProjectV2SingleSelectField {
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+        """
+        
+        res = self.run_graphql(mutation, {"fieldId": status_field_id, "options": final_options_payload})
+        if res and 'data' in res and 'updateProjectV2Field' in res['data']:
+            print("  [Project] Columns update mutation sent.")
+            
+            # Re-fetch to guarantee we have all IDs correct
+            time.sleep(1) # Short propagation delay
+            refetch_res = self.run_graphql(query, {"nodeId": status_field_id})
+            if refetch_res and 'data' in refetch_res and refetch_res['data']['node']:
+                 new_opts = refetch_res['data']['node']['options']
+                 print("  [Project] Columns re-fetched successfully.")
+                 return {opt['name'].lower(): opt['id'] for opt in new_opts}
+                 
+            # Fallback to mutation result if refetch fails (unlikely)
+            new_opts = res['data']['updateProjectV2Field']['projectV2Field']['options']
+            return {opt['name'].lower(): opt['id'] for opt in new_opts}
+        else:
+            print(f"  [Error] Failed to update columns. {res}")
+            # Return old options as fallback
+            return {opt['name'].lower(): opt['id'] for opt in current_options}
+
+    def log_error(self, message):
+        print(f"  [GitHub Error] {message}")
+
+    def create_label(self, repo_full_name, name, color="ededed", description="Imported from Trello"):
+        # Check if exists (optional optimisation, but 'create --force' is easier)
+        # We catch the error here to avoid crashing the whole script or filling logs with 403s
+        out = self.run_gh_cmd([
             "label", "create", name,
-            "--repo", f"{self.owner}/{self.repo}",
+            "--repo", repo_full_name,
             "--color", color,
             "--description", description,
-            "--force" # Updates if exists
+            "--force"
         ])
+        if out is None:
+            # It failed. Let's assume we can't use this label.
+            return False
+        return True
 
-    def create_issue(self, title, body, labels):
-        print(f"  Creating issue: {title}")
+    def create_issue(self, repo_full_name, title, body, labels):
+        # Filter out labels that might validly fail? No, we just try to use them.
         args = [
             "issue", "create",
-            "--repo", f"{self.owner}/{self.repo}",
+            "--repo", repo_full_name,
             "--title", title,
-            "--body", body,
-            "--project", self.repo # wait, linking to project usually needs project name or we add item later
-            # It's often safer to create the issue, then add to project item if --project flag is finicky with V2
+            "--body", body
         ]
-        # Adding labels
-        for l in labels:
-            args.extend(["--label", l])
+        if labels:
+            for l in labels:
+                args.extend(["--label", l])
             
         out = self.run_gh_cmd(args)
+        return out if out else None
+    
+    def add_issue_to_project(self, project_url, issue_url):
+        # ... (parse logic same as before)
+        if not project_url:
+            return None
+            
+        match = re.search(r'projects/(\d+)', project_url)
+        if not match:
+            print(f"  [Error] Could not parse project number from {project_url}")
+            return None
+            
+        project_number = match.group(1)
+        
+        owner_match = re.search(r'github\.com/(?:orgs|users)/([^/]+)', project_url)
+        owner = owner_match.group(1) if owner_match else None
+        
+        if not owner:
+             print(f"  [Error] Could not parse owner from {project_url}")
+             return None
+
+        cmd = [
+            "project", "item-add", str(project_number),
+            "--owner", owner,
+            "--url", issue_url,
+            "--format", "json"
+        ]
+        
+        out = self.run_gh_cmd(cmd)
+        return json.loads(out) if out else None
+
+    def get_issue_comments(self, issue_url):
+        # gh issue view <url> --json comments,body
+        cmd = ["issue", "view", issue_url, "--json", "comments,body"]
+        out = self.run_gh_cmd(cmd)
         if out:
-            # Output is usually the URL of the issue
+            return json.loads(out)
+        return None
+
+    def add_comment(self, issue_url, body):
+        cmd = ["issue", "comment", issue_url, "--body", body]
+        out = self.run_gh_cmd(cmd)
+        if out:
+            # Output is usually the url of comment
             return out
         return None
     
-    def add_issue_to_project(self, issue_url):
-        # This requires the project ID or number.
-        # gh project item-add <number> --owner <owner> --url <issue-url>
-        print(f"  Adding issue to project {self.project_number}...")
-        out = self.run_gh_cmd([
-            "project", "item-add", str(self.project_number),
-            "--owner", self.owner,
-            "--url", issue_url,
-            "--format", "json"
-        ])
-        return json.loads(out) if out else None
+    def delete_issue(self, issue_url):
+        # gh issue delete <url> --yes
+        cmd = ["issue", "delete", issue_url, "--yes"]
+        out = self.run_gh_cmd(cmd)
+        # returns nothing on success usually, or success message
+        return True # if no exception
 
-    def update_item_status(self, project_id, item_id, field_id, option_id):
-        # We need a mutation for this, typically via 'gh project item-edit'
-        # gh project item-edit --id <item-id> --field-id <field-id> --project-id <project-id> --single-select-option-id <option-id>
-        # Note: CLI syntax might vary, falling back to basic field update if possible.
-        # 'gh project item-edit' is available in newer versions.
+    def get_project_items(self, project_url):
+        match = re.search(r'projects/(\d+)', project_url)
+        if not match: return []
+        project_number = match.group(1)
         
-        self.run_gh_cmd([
+        owner_match = re.search(r'github\.com/(?:orgs|users)/([^/]+)', project_url)
+        owner = owner_match.group(1) if owner_match else None
+        
+        # gh project item-list <number> --owner <owner> --limit 1000 --format json
+        cmd = ["project", "item-list", str(project_number), "--owner", owner, "--limit", "1000", "--format", "json"]
+        out = self.run_gh_cmd(cmd)
+        if out:
+            try:
+                data = json.loads(out)
+                return data.get('items', [])
+            except: 
+                return []
+        return []
+
+    def get_project_status_field(self, project_url):
+        # Fetch status field options to map columns
+        print(f"  Fetching Project Fields for {project_url}...")
+        match = re.search(r'projects/(\d+)', project_url)
+        if not match: 
+            print("    -> [Error] Could not parse project number.")
+            return None
+        project_number = match.group(1)
+        
+        owner_match = re.search(r'github\.com/(?:orgs|users)/([^/]+)', project_url)
+        owner = owner_match.group(1) if owner_match else None
+        
+        # Method 1: field-list (sometimes fails on orgs)
+        cmd = ["project", "field-list", str(project_number), "--owner", owner, "--format", "json"]
+        out = self.run_gh_cmd(cmd)
+        
+        fields_list = []
+        if out:
+             try:
+                 data = json.loads(out)
+                 fields_list = data.get('fields', [])
+             except: pass
+        
+        # Method 2: project view (fallback)
+        if not fields_list:
+             print("    -> [Debug] status-list empty, trying project view...")
+             cmd = ["project", "view", str(project_number), "--owner", owner, "--format", "json"]
+             out = self.run_gh_cmd(cmd)
+             if out:
+                try:
+                    data = json.loads(out)
+                    # Check if data is valid (has ID)
+                    if not data.get('id'):
+                        print("\n    🛑 [CRITICAL WARNING] GitHub Project returned empty data!")
+                        print("    This usually means your GitHub Token lacks 'Projects' (Read/Write) access.")
+                        print("    Please regenerate your PAT with 'Organization Project' permissions.\n")
+                        return None
+                    
+                    fields_list = data.get('fields', [])
+                except: pass
+
+        if not fields_list:
+             print("    -> [Error] Failed to retrieve project fields.")
+             return None
+
+        # DEBUG: Print structure
+        # print(f"    -> [Debug] Fields data type: {type(fields_list)}")
+        # if fields_list: print(f"    -> [Debug] First item: {fields_list[0]}")
+
+        # Find 'Status' field
+        status_field = None
+        for f in fields_list:
+            if isinstance(f, dict) and (f.get('name') == 'Status' or f.get('name') == 'status'):
+                status_field = f
+                break
+        
+        if status_field:
+            p_id = None
+            if 'data' in locals() and isinstance(data, dict):
+                 p_id = data.get('id')
+            
+            if not p_id:
+                  p_id = status_field.get('project', {}).get('id')
+            
+            # If ID is still missing, fetch it explicitly
+            if not p_id:
+                print("    -> [Debug] Project Node ID missing, fetching via project view...")
+                cmd = ["project", "view", str(project_number), "--owner", owner, "--format", "json"]
+                out = self.run_gh_cmd(cmd)
+                if out:
+                    try:
+                        p_data = json.loads(out)
+                        p_id = p_data.get('id')
+                    except: pass
+            
+            return {
+                "project_node_id": p_id, 
+                "field_id": status_field['id'],
+                "options": {opt['name'].lower(): opt['id'] for opt in status_field.get('options', [])}
+            }
+        
+        # print(f"    -> [Warning] 'Status' field not found. Available: {[f.get('name') for f in fields_list]}")
+        return None
+
+    def get_project_item(self, project_url, item_id):
+        # Fetch status of an item
+        # gh project item-view <item-id> --owner <owner> --project-id <project-id> --format json
+        # We need project ID, not number.
+        
+        match = re.search(r'projects/(\d+)', project_url)
+        if not match: return None
+        project_number = match.group(1)
+        
+        owner_match = re.search(r'github\.com/(?:orgs|users)/([^/]+)', project_url)
+        owner = owner_match.group(1) if owner_match else None
+        
+        # Get Project Node ID (Usually cached in main loop, but here simpler to just get it if missing, or use cached one)
+        # We can implement a simple cache in the loop, or just fetch view of project first.
+        # But `gh project item-edit --id <item-id>` doesn't strictly need project id?
+        # `gh project item-view` doesn't strictly need project id if we assume context, but flags say --owner --project-id required?
+        # Actually `gh project item-view {item-id} --owner {owner}` might work if id is global?
+        # Tested locally: item-view requires owner and project-number usually.
+        
+        # NOTE: 'gh project item-view' with --id does NOT accept --owner or positional args in some versions
+        # Trying minimal arguments first: just item ID and format?
+        # But we need to account for CLI differences.
+        # Safe bet: `gh project item-view --id <ID> --format json` might work if globally unique info is available?
+        # If not, assume project number is needed but owner flag is problematic.
+        
+        # Removing --owner as it causes "unknown flag" error.
+        cmd = [
+             "project", "item-view",
+             "--project-id", project_url.split('/')[-1] if 'project' not in project_url else "8", # Hacky fallback, usually ignored
+        ]
+        # Actually proper usage: gh project item-view <number> --owner <owner> (for item number)
+        # OR gh project item-view --id <id> (Global Node ID)
+        
+        # Since we have Node ID (item_id), try just that.
+        cmd = ["project", "item-view", "--id", item_id, "--format", "json"]
+        
+        out = self.run_gh_cmd(cmd)
+        return json.loads(out) if out else None
+    
+    def set_item_status(self, project_url, item_id, status_field_data, status_name):
+        # project_url is used to derive owner/number context
+        match = re.search(r'projects/(\d+)', project_url)
+        project_number = match.group(1)
+        owner_match = re.search(r'github\.com/(?:orgs|users)/([^/]+)', project_url)
+        owner = owner_match.group(1) if owner_match else None
+        
+        if not status_field_data.get('project_node_id'):
+             view_cmd = ["project", "view", str(project_number), "--owner", owner, "--format", "json"]
+             view_out = self.run_gh_cmd(view_cmd)
+             if view_out:
+                 status_field_data['project_node_id'] = json.loads(view_out)['id']
+        
+        project_node_id = status_field_data.get('project_node_id')
+        if not project_node_id:
+            print(f"    -> [Error] Could not determine Project Node ID for {project_url}")
+            return
+        
+        # Find Option ID
+        # Normalized lookup
+        option_id = status_field_data['options'].get(status_name.lower())
+        
+        # Fuzzy match fallback (e.g. extra spaces)
+        if not option_id:
+            for k, v in status_field_data['options'].items():
+                if k.strip() == status_name.lower().strip():
+                     option_id = v
+                     break
+        
+        if not option_id:
+            print(f"    -> [Warning] Status option '{status_name}' not found. Available keys: {list(status_field_data['options'].keys())}")
+            return False
+            
+        cmd = [
             "project", "item-edit",
             "--id", item_id,
-            "--project-id", project_id,
-            "--field-id", field_id,
+            "--project-id", project_node_id,
+            "--field-id", status_field_data['field_id'],
             "--single-select-option-id", option_id
-        ])
+        ]
+        
+        out = self.run_gh_cmd(cmd)
+        if out is None:
+             print(f"    -> [Error] Failed to set status to '{status_name}'. (Command failed)")
+             return False
+        return True
+
+    def get_existing_issues(self, repo_full_name):
+        # Fetch all issues (title, url) to avoid duplicates
+        # Limiting to open issues to be faster
+        print(f"  Fetching existing issues from {repo_full_name}...")
+        cmd = [
+            "issue", "list",
+            "--repo", repo_full_name,
+            "--limit", "1000",
+            "--state", "all",
+            "--json", "title,url,body"
+        ]
+        out = self.run_gh_cmd(cmd)
+        if out:
+            return json.loads(out)
+        return []
+
+# --- Verification Functions ---
+def verify_access(config):
+    print("\n🔍 Starting Access Verification...")
+    all_good = True
+    
+    # 1. Verify Trello (Skipped in Migration Script)
+    # trello_conf = config['tokens']['trello']
+    # if trello_conf['api_key'] and trello_conf['api_key'] != "YOUR_TRELLO_API_KEY":
+    #     print("  Checking Trello Access...", end="")
+    #     trello_client = TrelloClient(trello_conf['api_key'], trello_conf['token'])
+    #     try:
+    #         # Try to fetch current token member info
+    #         # GET /1/members/me
+    #         trello_client._request("GET", "/members/me")
+    #         print(" ✅ OK")
+    #     except Exception as e:
+    #         print(f" ❌ FAILED\n    Error: {e}")
+    #         all_good = False
+    # else:
+    #     print("  ⚠️ Trello credentials not configured.")
+    # (Trello check moved to trello-json.py)
+
+    # 2. Verify GitHub
+    gh_conf = config.get('tokens', {}).get('github', {})
+    gh_token = gh_conf.get('token')
+    
+    # Initialize client (will use CLI auth if token is None/placeholder)
+    print("  Checking GitHub Access...", end="")
+    gh_client = GitHubClient(gh_token)
+    
+    # Simple check: get user
+    user_check = gh_client.run_gh_cmd(["api", "user", "--jq", ".login"])
+    if user_check:
+         print(f" ✅ OK (Logged in as: {user_check})")
+         
+         # 3. Verify Repo Access (for Labels/Issues)
+         print("\n  Checking Repository Write Permissions...")
+         if config.get('trello_boards'):
+             # Collect unique repos
+             unique_repos = set()
+             for board in config['trello_boards']:
+                 _, repo_name = get_gh_config(board)
+                 if repo_name:
+                     unique_repos.add(repo_name)
+             
+             for repo in unique_repos:
+                 print(f"    Checking: {repo} ...", end="")
+                 # Check permissions via API
+                 # response: { "admin": true, "maintain": true, "push": true, "triage": true, "pull": true }
+                 perm_json = gh_client.run_gh_cmd(["api", f"repos/{repo}", "--jq", ".permissions"])
+                 
+                 has_write = False
+                 if perm_json:
+                     try:
+                         perms = json.loads(perm_json)
+                         if perms.get('push') or perms.get('admin'):
+                             has_write = True
+                     except: pass
+                 
+                 if has_write:
+                    print(f" ✅ WRITE ACCESS OK")
+                 else:
+                    print(f" ❌ FAILED (No Write/Push Access)")
+                    print(f"      -> Verify your PAT/CLI auth has 'repo' scope and you include '{repo}'.")
+                    all_good = False
+         else:
+             print(" (Skipping repo check, no boards configured)")
+
+         # 4. Verify GitHub Projects Access
+         print("  Checking Project Permissions...")
+         # Check explicitly for project scopes if possible, or just try to access the projects in config
+             
+         # Test Project Access for each board
+         for board in config['trello_boards']:
+             target_url, _ = get_gh_config(board)
+             if not target_url: continue
+             
+             print(f"    Checking: {target_url} ...", end="")
+             
+             # Extract ID
+             match = re.search(r'projects/(\d+)', target_url)
+             if match:
+                 project_number = match.group(1)
+                 owner_match = re.search(r'github\.com/(?:orgs|users)/([^/]+)', target_url)
+                 owner = owner_match.group(1) if owner_match else ""
+                 
+                 # Try to fetch fields
+                 cmd = ["project", "field-list", str(project_number), "--owner", owner, "--format", "json"]
+                 out = gh_client.run_gh_cmd(cmd)
+                 
+                 valid_project = False
+                 if out:
+                     try:
+                         data = json.loads(out)
+                         if 'fields' in data:
+                             valid_project = True
+                     except: pass
+                 
+                 # Fallback check
+                 if not valid_project:
+                     cmd = ["project", "view", str(project_number), "--owner", owner, "--format", "json"]
+                     out = gh_client.run_gh_cmd(cmd)
+                     if out:
+                         try:
+                             data = json.loads(out)
+                             # If we have an ID and fields/items, we have read access
+                             if data.get('id'):
+                                 valid_project = True
+                         except: pass
+
+                 if valid_project:
+                     print(" ✅ Access OK")
+                 else:
+                     print(" ❌ ACCESS DENIED or NOT FOUND")
+                     print("      -> If using CLI auth, run: gh auth refresh -s read:project,project")
+                     all_good = False
+             else:
+                 print(" ⚠️ Invalid URL format")
+                     
+    else:
+         print(" ❌ FAILED. Invalid Token or Not Logged In.")
+         all_good = False
+
+    if not all_good:
+        print("\n🛑 Verification FAILED. Please fix credentials in config.yaml before proceeding.")
+        sys.exit(1)
+    
+    print("✅ All checks passed. Proceeding with migration...\n")
 
 # --- Main Logic ---
 
-def backup_trello(config):
-    trello_conf = config['tokens']['trello']
-    if not trello_conf['api_key'] or trello_conf['api_key'] == "YOUR_TRELLO_API_KEY":
-        print("Skipping Trello Backup: API Key not configured.")
+def get_backup_path(board):
+    # Try looking in ./back-ups/ first with the pattern "{id} - {name}.json"
+    filename = f"{board['id']} - {board['name']}.json"
+    path = os.path.join("back-ups", filename)
+    if os.path.exists(path):
+        return path
+    
+    # Fallback to config path if specified, or default
+    return board.get('backup_file', f"trello_backup_{board['id']}.json")
+
+def get_gh_config(board):
+    # Support new nested config
+    if 'github' in board and isinstance(board['github'], dict):
+        project_url = board['github'].get('project')
+        repo_url = board['github'].get('repo')
+    else:
+        project_url = board.get('github-target')
+        repo_url = board.get('repo')
+    
+    # Clean repo URL to name "owner/repo"
+    repo_name = repo_url
+    if repo_name and 'github.com/' in repo_name:
+        repo_name = repo_name.split('github.com/')[-1].strip('/')
+    
+    # Fallback for repo if missing (legacy default)
+    if not repo_name:
+        repo_name = 'bmw-ece-ntust/trello-github-migration'
+
+    return project_url, repo_name
+
+def clear_project_data(config, board_filter=None):
+    gh_conf = config['tokens']['github']
+    gh_client = GitHubClient(gh_conf.get('token'))
+
+    print("\n⚠️  WARNING: This will DELETE issues linked to the projects defined in your config.")
+    print("    It is intended to clean up a failed migration before retrying.")
+    print("    Ensure you have backups!")
+    confirm = input("    Type 'DELETE' to confirm: ")
+    if confirm != "DELETE":
+        print("Aborted.")
         return
 
-    client = TrelloClient(trello_conf['api_key'], trello_conf['token'])
+    for board in config['trello_boards']:
+        if board_filter and board_filter.lower() not in board['name'].lower():
+            continue
+
+        target_url, target_repo = get_gh_config(board)
+        if not target_url: continue
+        
+        print(f"\nProcessing Board for Cleanup: {board['name']}")
+        print(f"  Project: {target_url}")
+        
+        items = gh_client.get_project_items(target_url)
+        print(f"  Found {len(items)} items in project.")
+        
+        for i, item in enumerate(items):
+            content = item.get('content', {})
+            # Check if it is an Issue (not DraftIssue or PR)
+            # DraftIssue type is "DraftIssue", Issue is "Issue"
+            # We want to check if it's from our repo? 
+            # item content url: https://github.com/owner/repo/issues/123
+            
+            item_type = item.get('type') # 'ISSUE', 'DRAFT_ISSUE', 'PULL_REQUEST'
+            # Note: GH CLI JSON output structure for item-list:
+            # { items: [ { content: { type: "Issue", url: "..." }, ... } ] }
+            # Wait, CLI structure varies. Let's assume content dictionary has url.
+            
+            c_url = content.get('url')
+            if not c_url: continue
+            
+            # Check if it belongs to target repo to be safe
+            if target_repo not in c_url:
+                print(f"    Skipping external item: {c_url}")
+                continue
+                
+            print(f"    Deleting {c_url} ...", end="")
+            gh_client.delete_issue(c_url)
+            print(" DONE")
+            
+            time.sleep(0.5)
+
+def process_backups(config, mode="all", board_filter=None):
+    # mode: 'migrate', 'all' (kept for compatibility, though strictly we only migrate now)
+    
+    # NOTE: Backup creation and comment enrichment has been moved to 'trello-json.py'.
+    # This script now focuses on the migration to GitHub using the existing JSON files.
+    
+    gh_conf = config['tokens']['github']
+    gh_client = GitHubClient(gh_conf.get('token'))
     
     for board in config['trello_boards']:
-        if board['id'] == "YOUR_TRELLO_BOARD_ID":
+        if board_filter and board_filter.lower() not in board['name'].lower():
+            print(f"Skipping Board: {board['name']} (Filtered)")
             continue
-            
-        print(f"Backing up Trello Board: {board['name']} ({board['id']})")
-        data = client.get_board_data(board['id'])
-        
-        filename = board.get('backup_file', f"trello_backup_{board['id']}.json")
-        with open(filename, 'w') as f:
-            json.dump(data, f, indent=2)
-        print(f"Saved backup to {filename}")
 
-def migrate_to_github(config):
-    gh_conf = config['tokens']['github']
-    token = gh_conf['token'] if gh_conf['token'] != "YOUR_GITHUB_TOKEN" else None
-    
-    for proj_conf in config['github_projects']:
-        print(f"\nProcessing Migration for Project: {proj_conf['trello_board_name']}")
+        print(f"\nProcessing Board: {board['name']} ({board['id']})")
         
-        # Find the backup file for this board
-        board_conf = next((b for b in config['trello_boards'] if b['name'] == proj_conf['trello_board_name']), None)
-        if not board_conf:
-            print("  No matching Trello board config found.")
+        backup_file = get_backup_path(board)
+        
+        # 1. Load Backup
+        data = None
+        if os.path.exists(backup_file):
+            print(f"  Found backup: {backup_file}")
+            with open(backup_file, 'r') as f:
+                data = json.load(f)
+        else:
+            print(f"  [Error] Backup file not found: {backup_file}")
+            print(f"  Please run 'python trello-json.py' first to download the board data.")
             continue
-            
-        backup_file = board_conf.get('backup_file')
-        if not os.path.exists(backup_file):
-            print(f"  Backup file {backup_file} not found. access Trello first.")
-            continue
-            
-        with open(backup_file, 'r') as f:
-            data = json.load(f)
-            
-        gh = GitHubClient(proj_conf['owner'], proj_conf['repo'], proj_conf['project_number'], token)
-        
-        # -- 1. Setup Lists/Columns mapping --
-        trello_lists = {l['id']: l['name'] for l in data['lists'] if not l['closed']}
-        import_lists = proj_conf.get('import_lists', [])
-        status_map = proj_conf.get('status_mapping', {})
-        
-        # -- 2. Create Labels for Lists --
-        gh.create_label("Trello Import", color="0E8A16")
-        for lname in trello_lists.values():
-            if not import_lists or lname in import_lists:
-                gh.create_label(f"List: {lname}")
 
-        # -- 3. Process Cards --
-        cards = [c for c in data['cards'] if not c['closed']]
-        # Sort by list to keep sequence
-        cards.sort(key=lambda x: (x['idList'], x['pos']))
-        
-        print(f"  Found {len(cards)} active cards.")
-        
-        for i, card in enumerate(cards):
-            list_id = card['idList']
-            if list_id not in trello_lists:
+        # 3. Migrate to GitHub (Renumbered step)
+        if mode in ["migrate", "all"]:
+            target_url, target_repo = get_gh_config(board)
+            
+            if not target_url:
+                print("  No 'github.project' URL configured. Skipping migration.")
                 continue
-            list_name = trello_lists[list_id]
             
-            if import_lists and list_name not in import_lists:
-                continue
+            print(f"  Migrating to Repo: {target_repo} -> Project: {target_url}")
+            
+            # -- Pre-fetch Data --
+            existing_issues = gh_client.get_existing_issues(target_repo)
+            existing_map = {i['title']: i for i in existing_issues}
+            
+            project_status_data = gh_client.get_project_status_field(target_url)
+            
+            # -- Sync Columns (Create missing lists as Status options) --
+            if project_status_data:
+                # 1. Gather all Trello lists
+                needed_lists = [l['name'] for l in data['lists'] if not l['closed']]
+                if board.get('import_lists'):
+                     needed_lists = [l for l in needed_lists if l in board['import_lists']]
                 
-            print(f"\n  [{i+1}/{len(cards)}] Migrating: {card['name']}")
+                # 2. Sync - Disabled (Moved to per-list loop)
+                # print("  Syncing Project Columns...")
+                # new_options_map = gh_client.ensure_project_status_options(
+                #     project_status_data['project_node_id'], 
+                #     project_status_data['field_id'], 
+                #     needed_lists
+                # )
+                
+                # if new_options_map:
+                #     project_status_data['options'] = new_options_map
             
-            # Formulate Body
-            desc = card.get('desc', '')
+            project_options = list(project_status_data['options'].keys()) if project_status_data else []
+            if project_status_data:
+                print(f"  Detected Project Status Options: {project_options}")
             
-            # Format Comments
-            comments_section = ""
-            if 'actions' in card:
-                comments = [a for a in card['actions'] if a['type'] == 'commentCard']
-                comments.sort(key=lambda x: x['date']) # Oldest first
-                if comments:
-                    comments_section = "\n\n### 💬 Trello Comments\n"
-                    for c in comments:
-                        member = c.get('memberCreator', {}).get('fullName', 'Unknown')
-                        date = c.get('date', '').split('T')[0]
-                        text = c.get('data', {}).get('text', '')
-                        comments_section += f"> **{member}** ({date}):\n> {text}\n\n"
+            # -- Setup Labels --
+            gh_client.create_label(target_repo, "Trello Import", "0E8A16")
+            
+            # Map Lists and Group Cards
+            # Group cards by list
+            # We want to iterate *Lists* as primary loop to verify columns
+            
+            lists_map = {l['id']: l['name'] for l in data['lists']}
+            import_lists = board.get('import_lists', []) # Config optional (from original script logic)
+            
+            # Group cards
+            cards_by_list = {}
+            for c in data['cards']:
+                if c['closed']: continue
+                lid = c['idList']
+                if lid not in cards_by_list: cards_by_list[lid] = []
+                cards_by_list[lid].append(c)
+                
+            # Iterate Lists
+            sorted_lists = sorted(data['lists'], key=lambda x: x['pos'])
+            
+            for list_info in sorted_lists:
+                if list_info['closed']: continue
+                list_id = list_info['id']
+                list_name = list_info['name']
+                
+                if list_id not in cards_by_list:
+                    continue # Empty list
+                
+                print(f"\n  📝 Processing List: {list_name} ({len(cards_by_list[list_id])} cards)")
+                
+                # Ensure Column Exists (Create if missing)
+                # Ensure we have a valid project_node_id before attempting mutation
+                if project_status_data and project_status_data.get('project_node_id') and list_name.lower() not in project_options:
+                     print(f"    [Project] Creating missing column: '{list_name}'...")
+                     new_map = gh_client.ensure_project_status_options(
+                         project_status_data['project_node_id'], 
+                         project_status_data['field_id'], 
+                         [list_name]
+                     )
+                     if new_map:
+                         project_status_data['options'] = new_map
+                         project_options = list(project_status_data['options'].keys())
 
-            # Checklists
-            checklist_section = ""
-            # (Note: Standard cards 'cards' endpoint might not list checklists items deeply unless requested specifically or parsed from full board JSON. 
-            # The 'get_board_data' used above 'checklists=all' but they come in a separate list in full board export, 
-            # OR embedded if using the cards endpoint with checklist params. 
-            # In the implementation above, `cards` endpoint return includes `idChecklists`. The items are usually separate.)
-            # For simplicity, we stick to description and comments for now unless the structure is deeply inspected.
-            
-            
-            body = f"{desc}\n{checklist_section}{comments_section}\n\n---\n*Imported from Trello List: {list_name}*"
-            
-            labels = ["Trello Import", f"List: {list_name}"]
-            
-            # Check for existing issue (Optional: Could implement check to avoid dupes)
-            
-            issue_url = gh.create_issue(card['name'], body, labels)
-            
-            if issue_url:
-                # Add to Project
-                project_item = gh.add_issue_to_project(issue_url)
+                # Check Column Verification
+                column_exists = list_name.lower() in project_options
+                status_icon = "✅" if column_exists else "⚠️"
+                print(f"    {status_icon} GitHub Project Status: '{list_name}' {'exists' if column_exists else 'NOT FOUND (Using default)'}")
+                if not column_exists:
+                     print(f"      [Checker] Missing Column! Script uses Default. cards will have no status.")
                 
-                # Update Status if mapped
-                # (Complex: requires finding the field ID and Option ID in the project. 
-                # This usually requires a preparatory 'fetch project schema' step.)
-                # For now, we leave it in the default column (Todo) or rely on manual triage.
-                pass
-            
-            time.sleep(config['options'].get('rate_limit_delay', 2))
+                # Process Cards in List
+                cards_in_list = cards_by_list[list_id]
+                cards_in_list.sort(key=lambda x: x['pos'])
+                
+                processed_count = 0
+                
+                for idx, card in enumerate(cards_in_list):
+                    print(f"    [{idx+1}/{len(cards_in_list)}] Card: {card['name']}")
+                    
+                    issue_url = None
+                    if card['name'] in existing_map:
+                        issue_url = existing_map[card['name']]['url']
+                        print(f"      -> [Exists] Link: {issue_url}")
+                        
+                        # Verify Comments
+                        trello_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+                        if trello_comments:
+                            print(f"      [Checker] Verifying {len(trello_comments)} Trello comments on GitHub...")
+                            gh_details = gh_client.get_issue_comments(issue_url)
+                            
+                            if gh_details:
+                                gh_body = gh_details.get('body', '') or ''
+                                gh_comments = [c['body'] for c in gh_details.get('comments', [])]
+                                all_gh_text = gh_body + "\n" + "\n".join(gh_comments)
+                                
+                                added_count = 0
+                                for tc in trello_comments:
+                                    text = tc.get('data', {}).get('text', '').strip()
+                                    if not text: continue
+                                    
+                                    # Simple check: Is the text content present?
+                                    # We strip to avoid whitespace mismatches
+                                    if text in all_gh_text:
+                                        # Assuming present
+                                        continue
+                                    
+                                    # If not in body or comments, we assume it's missing.
+                                    # Note: Formatting might make strict matching fail. 
+                                    # Trello comments in migration are wrapped in blockquotes.
+                                    # Let's try to find substring or look for author signature?
+                                    # "Safe" approach: Add it if not found. Duplicate risk? 
+                                    # Using a stricter substring check on the text itself.
+                                    
+                                    author = tc.get('memberCreator', {}).get('fullName', 'Unknown')
+                                    date_str = tc.get('date', '').split('T')[0]
+                                    comment_block = f"> **{author}** ({date_str}):\n> {text}"
+                                    
+                                    print(f"      [Checker] Missing comment from {author}. Adding...")
+                                    gh_client.add_comment(issue_url, comment_block)
+                                    added_count += 1
+                                
+                                if added_count > 0:
+                                     print(f"      [Checker] Added {added_count} missing comments.")
+                                else:
+                                     print(f"      [Checker] All comments verified.")
+                            else:
+                                print("      [Checker] Failed to fetch issue details. Skipping verification.")
+
+                    else:
+                        # Create Issue
+                        desc = card.get('desc', '')
+                        comments_section = ""
+                        comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+                        comments.sort(key=lambda x: x['date'])
+                        
+                        # Terminal Log for Comments (Oldest 3 & Newest 3)
+                        if comments:
+                            print(f"      💬 Comments ({len(comments)} total):")
+                            # Oldest 3
+                            for i, c in enumerate(comments[:3]):
+                                author = c.get('memberCreator', {}).get('fullName', 'Unknown')
+                                text_snippet = c.get('data', {}).get('text', '').replace('\n', ' ')[:60]
+                                print(f"        [Oldest #{i+1}] {author}: {text_snippet}...")
+                            
+                            if len(comments) > 6:
+                                print(f"        ... ({len(comments) - 6} more) ...")
+                                
+                            # Newest 3
+                            if len(comments) > 3:
+                                # Safe slice for newest 3
+                                newest_slice = comments[-3:]
+                                # Filter duplicates if total < 6
+                                newest_slice = [c for c in newest_slice if c not in comments[:3]]
+                                for i, c in enumerate(newest_slice):
+                                    author = c.get('memberCreator', {}).get('fullName', 'Unknown')
+                                    text_snippet = c.get('data', {}).get('text', '').replace('\n', ' ')[:60]
+                                    print(f"        [Newest #{i+1}] {author}: {text_snippet}...")
+
+                        if comments:
+                            comments_section = "\n\n### 💬 Trello Comments\n"
+                            for c in comments:
+                                author = c.get('memberCreator', {}).get('fullName', 'Unknown')
+                                date_str = c.get('date', '').split('T')[0]
+                                text = c.get('data', {}).get('text', '')
+                                comments_section += f"> **{author}** ({date_str}):\n> {text}\n\n"
+                        
+                        body = f"{desc}\n{comments_section}\n\n---\n*Imported from Trello List: {list_name}*"
+                        
+                        # Truncate body if too long (Github limit ~65536)
+                        if len(body) > 60000:
+                            print(f"      [Warning] Body too long ({len(body)} chars). Truncating...")
+                            body = body[:60000] + "\n\n... (Truncated due to length limit) ..."
+
+                        # Labels
+                        final_labels = ["Trello Import"]
+                        # Try to create labels, if fail, exclude them from issue create
+                        if gh_client.create_label(target_repo, "Trello Import", "0E8A16"):
+                             # If sucess logic valid
+                             pass
+                        else:
+                             # If label creation failed, we probably don't have permission.
+                             # But we can try to use the label anyway if it exists?
+                             # Or better, just don't add labels if we suspect 403.
+                             # A 403 on 'create' prevents using it if it doesn't exist.
+                             pass
+
+                        list_label = f"List: {list_name}"
+                        if gh_client.create_label(target_repo, list_label, "ededed"):
+                            final_labels.append(list_label)
+                        
+                        print(f"      Creating issue...", end="", flush=True)
+                        issue_url = gh_client.create_issue(target_repo, card['name'], body, final_labels)
+                        if issue_url: 
+                            print(f"\r      -> Created: {issue_url}")
+                        else:
+                            print(f"\r      -> [Error] Failed to create issue.")
+                    
+                    if issue_url:
+                        # Link and Set Status
+                        print(f"      Adding to Project {target_url}...", end="", flush=True)
+                        project_item = gh_client.add_issue_to_project(target_url, issue_url)
+                        
+                        if project_item:
+                            print(f" -> OK (Item ID: {project_item.get('id')})")
+                            
+                            if project_status_data and column_exists:
+                                print(f"      Setting Status to '{list_name}'...", end="", flush=True)
+                                success = gh_client.set_item_status(target_url, project_item['id'], project_status_data, list_name)
+                                if success:
+                                    print(" -> OK")
+                                else:
+                                    print(" -> Failed (Check logs)")
+                                
+                                # Verification (First card)
+                                if idx == 0:
+                                    print("      [Checker] Verifying first card placement...")
+                                    # Fetch item again to check status
+                                    verified_item = gh_client.get_project_item(target_url, project_item['id'])
+                                    if verified_item:
+                                        # Parse field values. "Status" field value
+                                        # Struct: item -> content -> ... or item -> fieldValues -> ...
+                                        # CLI JSON output: fieldValues: { nodes: [ { ... field: { name: "Status" }, value: "Done" } ] }
+                                        # Or simple key-value?
+                                        # `gh project item-view` returns robust JSON.
+                                        # We look for the field 'Status'. 
+                                        # Output structure depends on CLI version, assuming 'fieldValues'.
+                                        
+                                        current_status = "Unknown"
+                                        # Check 'fieldValues' -> 'nodes'
+                                        fvals = verified_item.get('fieldValues', {}).get('nodes', [])
+                                        # Find one where field.name == 'Status'
+                                        # Note: CLI output might vary.
+                                        # Assuming standard GQL-like structure proxy
+                                        for fv in fvals:
+                                             if fv.get('field', {}).get('name') == 'Status':
+                                                 current_status = fv.get('name') # 'name' of the option
+                                                 break
+                                        
+                                        if current_status and current_status.lower() == list_name.lower():
+                                            print(f"      ✅ Verified! Card is in column '{current_status}'.")
+                                        else:
+                                            print(f"      ❌ Verify Failed! Card is in '{current_status}', expected '{list_name}'.")
+
+                            processed_count += 1
+                    
+                    time.sleep(config.get('options', {}).get('rate_limit_delay', 2))
+                
+                # List Complete Verify
+                print(f"  🏁 List '{list_name}' Done. Processed {processed_count}/{len(cards_in_list)} cards.")
+                if column_exists:
+                     print(f"    -> Check Column here: {target_url}?filterQuery=status%3A%22{list_name.replace(' ', '+')}%22")
+                else: 
+                     print(f"    -> Link to Project: {target_url}")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python trello-github-migration.py [config|backup|migrate|all]")
-        print("  config:  Generate/Check config")
-        print("  backup:  Run Trello Backup")
-        print("  migrate: Run GitHub Migration")
-        print("  all:     Run both")
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(description="Trello to GitHub Migration")
+    parser.add_argument("command", choices=["migrate", "all", "clear"], help="Command to run")
+    parser.add_argument("--board", help="Filter by board name (case-insensitive substring match)")
+    args = parser.parse_args()
 
-    cmd = sys.argv[1]
     cfg = load_config()
+    verify_access(cfg)
     
-    if cmd in ["backup", "all"]:
-        backup_trello(cfg)
-    
-    if cmd in ["migrate", "all"]:
-        migrate_to_github(cfg)
+    if args.command == "clear":
+        clear_project_data(cfg, board_filter=args.board)
+    else:
+        process_backups(cfg, mode=args.command, board_filter=args.board)
+
