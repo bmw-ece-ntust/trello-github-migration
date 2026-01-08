@@ -326,12 +326,45 @@ class GitHubClient:
             return out
         return None
     
-    def delete_issue(self, issue_url):
-        # gh issue delete <url> --yes
-        cmd = ["issue", "delete", issue_url, "--yes"]
-        out = self.run_gh_cmd(cmd)
-        # returns nothing on success usually, or success message
-        return True # if no exception
+    def delete_issues_batch(self, issue_node_ids):
+        if not issue_node_ids: return True
+        
+        # Batch in groups of 25 to avoid complexity limits
+        batch_size = 25
+        all_success = True
+        
+        total_batches = (len(issue_node_ids) - 1) // batch_size + 1
+        print(f"    Deleting {len(issue_node_ids)} issues in {total_batches} batches...")
+
+        for i in range(0, len(issue_node_ids), batch_size):
+            chunk = issue_node_ids[i:i+batch_size]
+            print(f"      Processing batch {i//batch_size + 1}/{total_batches} ({len(chunk)} issues)...", end="", flush=True)
+            
+            mutation_parts = []
+            for j, node_id in enumerate(chunk):
+                mutation_parts.append(f'd{j}: deleteIssue(input: {{issueId: "{node_id}"}}) {{ clientMutationId }}')
+            
+            query = "mutation { " + " ".join(mutation_parts) + " }"
+            
+            res = self.run_graphql(query)
+            if res and 'data' in res:
+                # Check for individual errors in response even if data exists?
+                # GraphQL returns data for success and errors for partial failures.
+                if 'errors' in res:
+                     print(f" Partial Error: {len(res['errors'])} failed.")
+                     all_success = False
+                else:
+                     print(" OK")
+            else:
+                print(" Failed")
+                if res: print(f"        Error: {res.get('errors')}")
+                all_success = False
+                time.sleep(2)
+            
+            # Rate limit protection
+            time.sleep(1)
+        
+        return all_success
 
     def get_project_items(self, project_url):
         match = re.search(r'projects/(\d+)', project_url)
@@ -751,34 +784,61 @@ def clear_project_data(config, board_filter=None):
         print(f"\nProcessing Board for Cleanup: {board['name']}")
         print(f"  Project: {target_url}")
         
-        items = gh_client.get_project_items(target_url)
-        print(f"  Found {len(items)} items in project.")
-        
-        for i, item in enumerate(items):
-            content = item.get('content', {})
-            # Check if it is an Issue (not DraftIssue or PR)
-            # DraftIssue type is "DraftIssue", Issue is "Issue"
-            # We want to check if it's from our repo? 
-            # item content url: https://github.com/owner/repo/issues/123
-            
-            item_type = item.get('type') # 'ISSUE', 'DRAFT_ISSUE', 'PULL_REQUEST'
-            # Note: GH CLI JSON output structure for item-list:
-            # { items: [ { content: { type: "Issue", url: "..." }, ... } ] }
-            # Wait, CLI structure varies. Let's assume content dictionary has url.
-            
-            c_url = content.get('url')
-            if not c_url: continue
-            
-            # Check if it belongs to target repo to be safe
-            if target_repo not in c_url:
-                print(f"    Skipping external item: {c_url}")
-                continue
+        while True:
+            items = gh_client.get_project_items(target_url)
+            if not items:
+                print("  No items found in project.")
+                break
                 
-            print(f"    Deleting {c_url} ...", end="")
-            gh_client.delete_issue(c_url)
-            print(" DONE")
+            print(f"  Found {len(items)} items in project batch...")
             
-            time.sleep(0.5)
+            issue_ids_to_delete = []
+            
+            for item in items:
+                content = item.get('content', {})
+                # Check if it is an Issue
+                item_type = content.get('type')
+                
+                # If type is missing, infer from URL or assume issue if it has content
+                # But safer to rely on 'type' if present or structure.
+                # GH CLI json: { content: { type: "Issue", ... } }
+                
+                if item_type != "Issue":
+                    continue
+                
+                c_url = content.get('url')
+                c_id = content.get('id') # Issue Node ID
+                
+                if not c_url or not c_id: continue
+                
+                # Check if it belongs to target repo
+                if target_repo not in c_url:
+                    print(f"    Skipping external item: {c_url}")
+                    continue
+                
+                issue_ids_to_delete.append(c_id)
+            
+            if not issue_ids_to_delete:
+                print("  No matching issues found in this batch.")
+                # Break to avoid infinite loop if items are not disappearing (e.g. permission error)
+                # But wait, if we found items but filtered them all out, we should probably stop or pagination handling?
+                # get_project_items returns first 1000. If we filtered all 1000, we might need to look at next page?
+                # But 'item-list' doesn't support offset easily without pagination cursor which CLI doesn't expose easily.
+                # Assuming we are deleting them, they will disappear.
+                # If we filter them (external), they remain. Infinite loop risk!
+                # If filtered count == len(items), we are stuck.
+                print("  (All items in batch were skipped/external. Stopping cleanup for this board to prevent infinite loop.)")
+                break
+                
+            print(f"  Identified {len(issue_ids_to_delete)} issues to delete.")
+            gh_client.delete_issues_batch(issue_ids_to_delete)
+            
+            print("  Batch complete. Re-checking project...")
+            time.sleep(2)
+            
+            # Safety break if we processed less than limit, implies we are done
+            if len(items) < 1000:
+                 break
 
 def process_backups(config, mode="all", board_filter=None):
     # mode: 'migrate', 'all' (kept for compatibility, though strictly we only migrate now)
