@@ -969,22 +969,10 @@ def process_backups(config, mode="all", board_filter=None):
                                     text_snippet = c.get('data', {}).get('text', '').replace('\n', ' ')[:60]
                                     print(f"        [Newest #{i+1}] {author}: {text_snippet}...")
 
-                        if comments:
-                            comments_section = "\n\n### 💬 Trello Comments\n"
-                            for c in comments:
-                                author = c.get('memberCreator', {}).get('fullName', 'Unknown')
-                                username = c.get('memberCreator', {}).get('username', '')
-                                date_full = c.get('date', '').replace('T', ' ').replace('.000Z', '') # Full ISO mostly
-                                text = c.get('data', {}).get('text', '')
-                                
-                                # Format: "Author (@username) on YYYY-MM-DD HH:MM:SS"
-                                header = f"**{author}**"
-                                if username: header += f" (@{username})"
-                                header += f" on {date_full}"
-                                
-                                comments_section += f"> {header}:\n> {text}\n\n"
+                        # if comments:
+                        #     comments_section = ... (Disabled: Posting comments individually)
                         
-                        body = f"{desc}\n{comments_section}\n\n---\n*Imported from Trello List: {list_name}*"
+                        body = f"{desc}\n\n---\n*Imported from Trello List: {list_name}*"
                         
                         # Truncate body if too long (Github limit ~65536)
                         if len(body) > 60000:
@@ -1016,6 +1004,23 @@ def process_backups(config, mode="all", board_filter=None):
                         issue_url = gh_client.create_issue(target_repo, card['name'], body, final_labels)
                         if issue_url: 
                             print(f"\r      -> Created: {issue_url}")
+                            # Post Comments Individually
+                            if comments:
+                                print(f"      Posting {len(comments)} comments...")
+                                for c in comments:
+                                    author = c.get('memberCreator', {}).get('fullName', 'Unknown')
+                                    username = c.get('memberCreator', {}).get('username', '')
+                                    date_full = c.get('date', '').replace('T', ' ').replace('.000Z', '')
+                                    text = c.get('data', {}).get('text', '')
+                                    
+                                    header = f"**{author}**"
+                                    if username: header += f" (@{username})"
+                                    header += f" on {date_full}"
+                                    
+                                    comment_block = f"> {header}:\n> {text}"
+                                    gh_client.add_comment(issue_url, comment_block)
+                                    # Gentle throttling for comments
+                                    time.sleep(1)
                         else:
                             print(f"\r      -> [Error] Failed to create issue.")
                     

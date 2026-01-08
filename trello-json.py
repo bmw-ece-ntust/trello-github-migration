@@ -80,7 +80,7 @@ def get_backup_path(board):
     filename = f"{board['id']} - {safe_name}.json"
     return os.path.join("back-ups", filename)
 
-def process_backups(config, force_refresh=False, skip_verify=False):
+def process_backups(config, force_refresh=False, skip_verify=False, board_filter=None):
     trello_conf = config['tokens']['trello']
     trello_client = None
     if trello_conf['api_key'] and trello_conf['api_key'] != "YOUR_TRELLO_API_KEY":
@@ -90,6 +90,9 @@ def process_backups(config, force_refresh=False, skip_verify=False):
         sys.exit(1)
 
     for board in config['trello_boards']:
+        if board_filter and board_filter.lower() not in board['name'].lower():
+            continue
+            
         print(f"\nProcessing Board: {board['name']} ({board['id']})")
         
         backup_file = get_backup_path(board)
@@ -219,7 +222,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Trello JSON Backup & Verify")
     parser.add_argument("--refresh", action="store_true", help="Force download fresh data from Trello")
     parser.add_argument("--skip-verify", action="store_true", help="Skip individual comment verification (faster)")
+    parser.add_argument("--board", help="Filter by board name (case-insensitive substring match)")
     args = parser.parse_args()
 
     cfg = load_config()
-    process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify)
+    process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify, board_filter=args.board)
