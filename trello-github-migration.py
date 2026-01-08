@@ -5,7 +5,7 @@ import time
 import os
 import sys
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- Configuration Loading ---
 def load_config(config_path="config.yaml"):
@@ -29,8 +29,8 @@ class GitHubClient:
         # but usually respecting the terminal env is better. We just stop overwriting it from config.)
         pass 
 
-    def run_gh_cmd(self, args, max_retries=5, input_text=None):
-        delay = 2
+    def run_gh_cmd(self, args, max_retries=10, input_text=None):
+        delay = 5
         # Try finding gh in standard paths if not in PATH
         gh_cmd = "gh"
         if not subprocess.run(["where", "gh"], capture_output=True, shell=True).returncode == 0:
@@ -228,19 +228,28 @@ class GitHubClient:
         return True
 
     def create_issue(self, repo_full_name, title, body, labels):
-        # Filter out labels that might validly fail? No, we just try to use them.
-        args = [
-            "issue", "create",
-            "--repo", repo_full_name,
-            "--title", title,
-            "--body", body
-        ]
+        # Use REST API for better rate limit handling. GraphQL (gh issue create) swallows secondary rate limit errors.
+        endpoint = f"repos/{repo_full_name}/issues"
+        payload = {
+            "title": title,
+            "body": body
+        }
         if labels:
-            for l in labels:
-                args.extend(["--label", l])
+            payload["labels"] = labels
             
-        out = self.run_gh_cmd(args)
-        return out if out else None
+        json_data = json.dumps(payload)
+        # Using --method POST explicitly, though default for data input
+        args = ["api", endpoint, "--method", "POST", "--input", "-"]
+        
+        out = self.run_gh_cmd(args, input_text=json_data)
+        
+        if out:
+            try:
+                resp = json.loads(out)
+                return resp.get('html_url')
+            except:
+                pass
+        return None
     
     def add_issue_to_project(self, project_url, issue_url):
         # ... (parse logic same as before)
@@ -919,9 +928,19 @@ def process_backups(config, mode="all", board_filter=None):
                                     
                                     author = tc.get('memberCreator', {}).get('fullName', 'Unknown')
                                     username = tc.get('memberCreator', {}).get('username', '')
-                                    date_full = tc.get('date', '').replace('T', ' ').replace('.000Z', '')
                                     
-                                    # Format: "Author (@username) on YYYY-MM-DD HH:MM:SS"
+                                    # Date Handling (UTC -> Taiwan GMT+8)
+                                    date_str = tc.get('date', '')
+                                    try:
+                                        # Parse ISO 8601 (e.g. 2023-10-27T03:00:23.123Z)
+                                        dt_utc = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+                                        dt_taiwan = dt_utc + timedelta(hours=8)
+                                        date_full = dt_taiwan.strftime("%Y-%m-%d %H:%M:%S") + " (Taiwan GMT+8)"
+                                    except ValueError:
+                                        # Fallback if format differs
+                                        date_full = date_str.replace('T', ' ').replace('.000Z', '') + " (UTC)"
+
+                                    # Format: "Author (@username) on YYYY-MM-DD HH:MM:SS (Taiwan GMT+8)"
                                     header = f"**{author}**"
                                     if username: header += f" (@{username})"
                                     header += f" on {date_full}"
@@ -946,6 +965,8 @@ def process_backups(config, mode="all", board_filter=None):
                         comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
                         comments.sort(key=lambda x: x['date'])
                         
+                        print(f"      Checking Backup Data: Found {len(comments)} comments for this card.")
+
                         # Terminal Log for Comments (Oldest 3 & Newest 3)
                         if comments:
                             print(f"      💬 Comments ({len(comments)} total):")
@@ -969,16 +990,11 @@ def process_backups(config, mode="all", board_filter=None):
                                     text_snippet = c.get('data', {}).get('text', '').replace('\n', ' ')[:60]
                                     print(f"        [Newest #{i+1}] {author}: {text_snippet}...")
 
-                        # if comments:
-                        #     comments_section = ... (Disabled: Posting comments individually)
+                        # Prepare Body checks
+                        # comments_section removed from body to avoid limits, migrating as separate comments
                         
                         body = f"{desc}\n\n---\n*Imported from Trello List: {list_name}*"
                         
-                        # Truncate body if too long (Github limit ~65536)
-                        if len(body) > 60000:
-                            print(f"      [Warning] Body too long ({len(body)} chars). Truncating...")
-                            body = body[:60000] + "\n\n... (Truncated due to length limit) ..."
-
                         # Labels
                         final_labels = ["Trello Import"]
                         # Try to create labels, if fail, exclude them from issue create
@@ -1004,23 +1020,44 @@ def process_backups(config, mode="all", board_filter=None):
                         issue_url = gh_client.create_issue(target_repo, card['name'], body, final_labels)
                         if issue_url: 
                             print(f"\r      -> Created: {issue_url}")
-                            # Post Comments Individually
+                            time.sleep(2) # Prevent rapid issue creation trigger
+                            
+                            # Migrate Comments Individually
                             if comments:
-                                print(f"      Posting {len(comments)} comments...")
-                                for c in comments:
+                                print(f"      Migrating {len(comments)} Trello comments...")
+                                for i, c in enumerate(comments):
                                     author = c.get('memberCreator', {}).get('fullName', 'Unknown')
                                     username = c.get('memberCreator', {}).get('username', '')
-                                    date_full = c.get('date', '').replace('T', ' ').replace('.000Z', '')
+                                    
+                                    # Date Handling (UTC -> Taiwan GMT+8)
+                                    date_str = c.get('date', '')
+                                    try:
+                                        # Parse ISO 8601 (e.g. 2023-10-27T03:00:23.123Z)
+                                        dt_utc = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+                                        dt_taiwan = dt_utc + timedelta(hours=8)
+                                        date_full = dt_taiwan.strftime("%Y-%m-%d %H:%M:%S") + " (Taiwan GMT+8)"
+                                    except ValueError:
+                                        # Fallback if format differs
+                                        date_full = date_str.replace('T', ' ').replace('.000Z', '') + " (UTC)"
+
                                     text = c.get('data', {}).get('text', '')
                                     
                                     header = f"**{author}**"
                                     if username: header += f" (@{username})"
                                     header += f" on {date_full}"
                                     
-                                    comment_block = f"> {header}:\n> {text}"
-                                    gh_client.add_comment(issue_url, comment_block)
-                                    # Gentle throttling for comments
-                                    time.sleep(1)
+                                    comment_content = f"> {header}:\n> {text}"
+                                    
+                                    # Progress
+                                    print(f"        Post comment {i+1}/{len(comments)}...", end="", flush=True)
+                                    res = gh_client.add_comment(issue_url, comment_content)
+                                    if res:
+                                        print(" OK")
+                                    else:
+                                        print(" Failed")
+                                    
+                                    # Small delay to avoid aggressive rate limiting during comment burst
+                                    time.sleep(2)
                         else:
                             print(f"\r      -> [Error] Failed to create issue.")
                     
@@ -1040,35 +1077,9 @@ def process_backups(config, mode="all", board_filter=None):
                                 else:
                                     print(" -> Failed (Check logs)")
                                 
-                                # Verification (First card)
+                                # Verification (First card) - SKIPPED due to CLI version compatibility
                                 if idx == 0:
-                                    print("      [Checker] Verifying first card placement...")
-                                    # Fetch item again to check status
-                                    verified_item = gh_client.get_project_item(target_url, project_item['id'])
-                                    if verified_item:
-                                        # Parse field values. "Status" field value
-                                        # Struct: item -> content -> ... or item -> fieldValues -> ...
-                                        # CLI JSON output: fieldValues: { nodes: [ { ... field: { name: "Status" }, value: "Done" } ] }
-                                        # Or simple key-value?
-                                        # `gh project item-view` returns robust JSON.
-                                        # We look for the field 'Status'. 
-                                        # Output structure depends on CLI version, assuming 'fieldValues'.
-                                        
-                                        current_status = "Unknown"
-                                        # Check 'fieldValues' -> 'nodes'
-                                        fvals = verified_item.get('fieldValues', {}).get('nodes', [])
-                                        # Find one where field.name == 'Status'
-                                        # Note: CLI output might vary.
-                                        # Assuming standard GQL-like structure proxy
-                                        for fv in fvals:
-                                             if fv.get('field', {}).get('name') == 'Status':
-                                                 current_status = fv.get('name') # 'name' of the option
-                                                 break
-                                        
-                                        if current_status and current_status.lower() == list_name.lower():
-                                            print(f"      ✅ Verified! Card is in column '{current_status}'.")
-                                        else:
-                                            print(f"      ❌ Verify Failed! Card is in '{current_status}', expected '{list_name}'.")
+                                    pass
 
                             processed_count += 1
                     

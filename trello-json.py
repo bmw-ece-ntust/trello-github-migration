@@ -168,8 +168,11 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
                 continue
             
             # Progress
+            # Fetch existing count from current card data
+            current_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+            
             if i % 10 == 0:
-                print(f"\r    Checking card [{i+1}/{len(cards)}]", end="", flush=True)
+                print(f"\r    Checking card [{i+1}/{len(cards)}] (Comments: {len(current_comments)})", end="", flush=True)
 
             # 1. Populate card['actions'] from global dump if missing
             # The migration script expects 'actions' inside the card.
@@ -205,6 +208,10 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
                      # But to be safe (content edit), we can update.
                      # Let's update to be sure.
                      card['actions'] = other_actions + full_comments
+                
+                final_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
+                if final_count > existing_comments_count:
+                    print(f"\r    Checking card [{i+1}/{len(cards)}] - Updated Comments: {existing_comments_count} -> {final_count}")
 
             except Exception as e:
                 print(f" Failed to fetch comments for {card['name']}: {e}")
