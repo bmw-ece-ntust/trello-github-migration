@@ -246,10 +246,40 @@ class GitHubClient:
         if out:
             try:
                 resp = json.loads(out)
-                return resp.get('html_url')
+                return resp
             except:
                 pass
         return None
+    
+    def add_comments_batch(self, issue_node_id, comments):
+        if not comments: return True
+        
+        # Batch in groups of 25 to avoid complexity limits
+        batch_size = 25
+        all_success = True
+        
+        for i in range(0, len(comments), batch_size):
+            chunk = comments[i:i+batch_size]
+            print(f"        Posting batch {i//batch_size + 1}/{(len(comments)-1)//batch_size + 1} ({len(chunk)} comments)...", end="", flush=True)
+            
+            mutation_parts = []
+            for j, comment_body in enumerate(chunk):
+                # json.dumps ensures the string is properly escaped for GraphQL
+                safe_body = json.dumps(comment_body)
+                mutation_parts.append(f'c{j}: addComment(input: {{subjectId: "{issue_node_id}", body: {safe_body}}}) {{ clientMutationId }}')
+            
+            query = "mutation { " + " ".join(mutation_parts) + " }"
+            
+            res = self.run_graphql(query)
+            if res and 'data' in res:
+                print(" OK")
+            else:
+                print(" Failed")
+                if res: print(f"          Error: {res.get('errors')}")
+                all_success = False
+                time.sleep(2)
+        
+        return all_success
     
     def add_issue_to_project(self, project_url, issue_url):
         # ... (parse logic same as before)
@@ -1017,15 +1047,20 @@ def process_backups(config, mode="all", board_filter=None):
                             print(f"      [Label] Warning: Failed to create label '{list_label}'.")
                         
                         print(f"      Creating issue...", end="", flush=True)
-                        issue_url = gh_client.create_issue(target_repo, card['name'], body, final_labels)
+                        issue_data = gh_client.create_issue(target_repo, card['name'], body, final_labels)
+                        
+                        issue_url = issue_data.get('html_url') if issue_data else None
+                        issue_node_id = issue_data.get('node_id') if issue_data else None
+
                         if issue_url: 
                             print(f"\r      -> Created: {issue_url}")
                             time.sleep(2) # Prevent rapid issue creation trigger
                             
-                            # Migrate Comments Individually
+                            # Migrate Comments (Batch Mode)
                             if comments:
                                 print(f"      Migrating {len(comments)} Trello comments...")
-                                for i, c in enumerate(comments):
+                                prepared_comments = []
+                                for c in comments:
                                     author = c.get('memberCreator', {}).get('fullName', 'Unknown')
                                     username = c.get('memberCreator', {}).get('username', '')
                                     
@@ -1047,17 +1082,18 @@ def process_backups(config, mode="all", board_filter=None):
                                     header += f" on {date_full}"
                                     
                                     comment_content = f"> {header}:\n> {text}"
-                                    
-                                    # Progress
-                                    print(f"        Post comment {i+1}/{len(comments)}...", end="", flush=True)
-                                    res = gh_client.add_comment(issue_url, comment_content)
-                                    if res:
-                                        print(" OK")
-                                    else:
-                                        print(" Failed")
-                                    
-                                    # Small delay to avoid aggressive rate limiting during comment burst
-                                    time.sleep(2)
+                                    prepared_comments.append(comment_content)
+                                
+                                if issue_node_id:
+                                    gh_client.add_comments_batch(issue_node_id, prepared_comments)
+                                else:
+                                    print("      [Warning] No Node ID available. Falling back to individual API calls.")
+                                    # Fallback to old method if node_id missing (unlikely)
+                                    for i, content in enumerate(prepared_comments):
+                                        print(f"        Post comment {i+1}/{len(comments)}...", end="", flush=True)
+                                        res = gh_client.add_comment(issue_url, content)
+                                        print(" OK" if res else " Failed")
+                                        time.sleep(1)
                         else:
                             print(f"\r      -> [Error] Failed to create issue.")
                     
