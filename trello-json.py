@@ -80,7 +80,7 @@ def get_backup_path(board):
     filename = f"{board['id']} - {safe_name}.json"
     return os.path.join("back-ups", filename)
 
-def process_backups(config, force_refresh=False):
+def process_backups(config, force_refresh=False, skip_verify=False):
     trello_conf = config['tokens']['trello']
     trello_client = None
     if trello_conf['api_key'] and trello_conf['api_key'] != "YOUR_TRELLO_API_KEY":
@@ -120,6 +120,27 @@ def process_backups(config, force_refresh=False):
             with open(backup_file, 'w') as f:
                 json.dump(data, f, indent=2)
             print("  Initial data saved.")
+
+        if skip_verify:
+            print("  Skipping comment verification (--skip-verify).")
+            # We must map global actions to cards if not done
+            cards = data['cards']
+            global_actions = data.get('actions', [])
+            actions_by_card = {}
+            for a in global_actions:
+                if 'card' in a['data'] and 'id' in a['data']['card']:
+                    cid = a['data']['card']['id']
+                    if cid not in actions_by_card: actions_by_card[cid] = []
+                    actions_by_card[cid].append(a)
+            
+            for card in cards:
+                if 'actions' not in card:
+                    card['actions'] = actions_by_card.get(card['id'], [])
+            
+            # Save just in case
+            with open(backup_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            continue
 
         # 2. Enrich Comment Data (Check completeness and map Global Actions to Cards)
         # In a standard export, actions are in data['actions']. We must ensure they are mapped to cards for the migration script.
@@ -197,7 +218,8 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Trello JSON Backup & Verify")
     parser.add_argument("--refresh", action="store_true", help="Force download fresh data from Trello")
+    parser.add_argument("--skip-verify", action="store_true", help="Skip individual comment verification (faster)")
     args = parser.parse_args()
 
     cfg = load_config()
-    process_backups(cfg, force_refresh=args.refresh)
+    process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify)

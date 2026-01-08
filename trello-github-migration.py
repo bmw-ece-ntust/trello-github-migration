@@ -19,27 +19,62 @@ def load_config(config_path="config.yaml"):
 class GitHubClient:
     def __init__(self, token=None):
         self.env = os.environ.copy()
-        # Only set GH_TOKEN if a specific token is provided in config and valid.
-        # Otherwise, rely on the system's 'gh' CLI authentication.
-        if token and token != "YOUR_GITHUB_TOKEN" and not token.startswith("github_pat_EXAMPLE"):
-            self.env["GH_TOKEN"] = token
-        else:
-            # Check if GH_TOKEN is in environment already, if not, we assume 'gh auth login' was run
-            pass 
+        # REMOVING Explicit Token Injection to rely on system 'gh' CLI authentication as requested.
+        # This ensures we use the active 'gh auth login' session instead of a potentially stale config token.
+        # if token and token != "YOUR_GITHUB_TOKEN" and not token.startswith("github_pat_EXAMPLE"):
+        #    self.env["GH_TOKEN"] = token
+        
+        # Ensure we don't accidentally use a stale env var if the user wants `gh` auth
+        # (Optional: self.env.pop("GH_TOKEN", None) if we wanted to be strictly CLI-file based, 
+        # but usually respecting the terminal env is better. We just stop overwriting it from config.)
+        pass 
 
-    def run_gh_cmd(self, args, max_retries=5):
+    def run_gh_cmd(self, args, max_retries=5, input_text=None):
         delay = 2
+        # Try finding gh in standard paths if not in PATH
+        gh_cmd = "gh"
+        if not subprocess.run(["where", "gh"], capture_output=True, shell=True).returncode == 0:
+             if os.path.exists("C:\\Program Files\\GitHub CLI\\gh.exe"):
+                 gh_cmd = "C:\\Program Files\\GitHub CLI\\gh.exe"
+        
         for attempt in range(max_retries):
             try:
-                cmd = ["gh"] + args
-                result = subprocess.run(cmd, capture_output=True, text=True, env=self.env)
+                cmd = [gh_cmd] + args
+                # Force UTF-8 encoding to handle emoji/special chars in issue content
+                result = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace', env=self.env, input=input_text)
                 
                 if result.returncode == 0:
                     return result.stdout.strip()
                 
                 err = result.stderr.strip()
-                if "rate limit" in err.lower() or "abuse" in err.lower() or "submitted too quickly" in err.lower():
-                    print(f"  [GH Rate Limit] Waiting {delay}s...")
+                # "unknown owner type" often appears when rate limited on project queries
+                retry_triggers = ["rate limit", "abuse", "submitted too quickly", "unknown owner type", "internal server error"]
+                if any(trigger in err.lower() for trigger in retry_triggers):
+                    # Smart Rate Limit Check
+                    if "rate limit" in err.lower() or "unknown owner type" in err.lower():
+                         try:
+                             # Check actual status anonymously/separately
+                             rl_chk = subprocess.run([gh_cmd, "api", "rate_limit"], capture_output=True, encoding='utf-8', errors='replace', env=self.env)
+                             if rl_chk.returncode == 0:
+                                 rl_json = json.loads(rl_chk.stdout)
+                                 # Checking GraphQl specifically as it's the usual culprit
+                                 gql = rl_json.get("resources", {}).get("graphql", {})
+                                 if gql.get("remaining", 1) == 0:
+                                     reset_ts = gql.get("reset", 0)
+                                     wait_s = max(0, int(reset_ts - time.time())) + 2
+                                     print(f"  [GH Rate Limit] GraphQL quota exhausted. Waiting {wait_s}s until reset...")
+                                     # Sleep in chunks to allow Ctrl+C
+                                     while wait_s > 0:
+                                         time.sleep(1)
+                                         wait_s -= 1
+                                         if wait_s % 30 == 0: print(f"    ... {wait_s}s remaining")
+                                     
+                                     # Reset delay after big wait
+                                     delay = 2
+                                     continue 
+                         except: pass
+
+                    print(f"  [GH API Issue] Hit '{err}'. Waiting {delay}s...")
                     time.sleep(delay)
                     delay *= 2
                     continue
@@ -55,31 +90,25 @@ class GitHubClient:
         return None
     
     def run_graphql(self, query, variables=None):
-        # Execute raw GraphQL
-        args = ["api", "graphql", "-f", f"query={query}"]
+        # Construct full payload for STDIN to avoid CLI escaping issues
+        payload = {"query": query}
         if variables:
-            for k, v in variables.items():
-                # Pass variables as JSON fields
-                # gh api -F name=value is for strings, using -F for complex json is tricky.
-                # simpler to use `gh api graphql -f query=... -F var=val`?
-                # For complex inputs (lists of objects), we usually need to pipe JSON to stdin.
-                pass
+            payload["variables"] = variables
+            
+        json_payload = json.dumps(payload)
         
-        # Using subprocess with input for complex vars
-        cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
+        # gh api graphql --input -
+        args = ["api", "graphql", "--input", "-"]
         
-        # Serialize variables
-        json_vars = json.dumps(variables) if variables else "{}"
-        # For gh api, passing JSON vars is best done via --field 'variables=JSON' ? No.
-        # gh api graphql -F query='...' -f variables='{"x":1}'
+        out = self.run_gh_cmd(args, input_text=json_payload)
         
-        cmd = ["gh", "api", "graphql", "-f", f"query={query}", "-f", f"variables={json_vars}"]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, env=self.env)
-        if result.returncode == 0:
-            return json.loads(result.stdout)
+        if out:
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                print(f"  [GraphQL Error] Invalid JSON response: {out}")
+                return None
         else:
-            print(f"  [GraphQL Error] {result.stderr}")
             return None
 
     def ensure_project_status_options(self, project_node_id, status_field_id, new_options):
@@ -127,7 +156,6 @@ class GitHubClient:
         # Add existing
         for opt in current_options:
             final_options_payload.append({
-                "id": opt['id'],
                 "name": opt['name'],
                 "color": opt['color'],
                 "description": opt['description']
@@ -144,7 +172,7 @@ class GitHubClient:
             
         # 4. Mutation
         mutation = """
-        mutation($fieldId: ID!, $options: [ProjectV2SingleSelectOptionInput!]!) {
+        mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
           updateProjectV2Field(input: {
             fieldId: $fieldId,
             singleSelectOptions: $options
@@ -500,7 +528,37 @@ def verify_access(config):
     # Initialize client (will use CLI auth if token is None/placeholder)
     print("  Checking GitHub Access...", end="")
     gh_client = GitHubClient(gh_token)
-    
+
+    # Check Rate Limit Status
+    try:
+        rl_out = gh_client.run_gh_cmd(["api", "rate_limit"])
+        if rl_out:
+            rl_data = json.loads(rl_out)
+            # Check GraphQL limit (Used for Projects)
+            gql_limit = rl_data.get("resources", {}).get("graphql", {})
+            remaining = gql_limit.get("remaining", 0)
+            reset_ts = gql_limit.get("reset", 0)
+            
+            if remaining < 50:
+                print(" ❌ BLOCKED")
+                print(f"    [!] CRITICAL: GitHub GraphQL Rate Limit is exhausted ({remaining} remaining).")
+                wait_seconds = max(0, int(reset_ts - time.time())) + 5
+                print(f"    [!] Rate Limit Protection Active: Sleeping for {wait_seconds // 60}m {wait_seconds % 60}s ...")
+                
+                # Countdown wait
+                while wait_seconds > 0:
+                     mins, secs = divmod(wait_seconds, 60)
+                     # Only print every 30s or last 10s to keep log clean but responsive
+                     if wait_seconds % 30 == 0 or wait_seconds < 10:
+                        print(f"       ⏳ Unblocking in {mins}m {secs}s...")
+                     time.sleep(1)
+                     wait_seconds -= 1
+                
+                print("    ✅ Reset time reached. Resuming operation.")
+                # Force re-check? No need, assuming reset worked.
+    except Exception as e:
+        print(f" (Rate limit check failed: {e}) ...", end="")
+
     # Simple check: get user
     user_check = gh_client.run_gh_cmd(["api", "user", "--jq", ".login"])
     if user_check:
@@ -770,6 +828,30 @@ def process_backups(config, mode="all", board_filter=None):
                 
             # Iterate Lists
             sorted_lists = sorted(data['lists'], key=lambda x: x['pos'])
+
+            # -- PRE-PROCESS STATUS COLUMNS --
+            # Identify all Lists that have cards and ensure columns exist ONCE to prevent ID thrashing
+            needed_columns = []
+            for list_info in sorted_lists:
+                if list_info['closed']: continue
+                if list_info['id'] in cards_by_list:
+                    needed_columns.append(list_info['name'])
+            
+            if project_status_data and project_status_data.get('project_node_id'):
+                 # Check if we are missing any
+                 missing_cols = [n for n in needed_columns if n.lower() not in project_options]
+                 if missing_cols:
+                     print(f"  [Project] Batch creating missing columns: {missing_cols}")
+                     new_map = gh_client.ensure_project_status_options(
+                         project_status_data['project_node_id'], 
+                         project_status_data['field_id'], 
+                         needed_columns 
+                     )
+                     if new_map:
+                         project_status_data['options'] = new_map
+                         project_options = list(project_status_data['options'].keys())
+                         print("  [Project] Columns synchronized.")
+
             
             for list_info in sorted_lists:
                 if list_info['closed']: continue
@@ -781,18 +863,7 @@ def process_backups(config, mode="all", board_filter=None):
                 
                 print(f"\n  📝 Processing List: {list_name} ({len(cards_by_list[list_id])} cards)")
                 
-                # Ensure Column Exists (Create if missing)
-                # Ensure we have a valid project_node_id before attempting mutation
-                if project_status_data and project_status_data.get('project_node_id') and list_name.lower() not in project_options:
-                     print(f"    [Project] Creating missing column: '{list_name}'...")
-                     new_map = gh_client.ensure_project_status_options(
-                         project_status_data['project_node_id'], 
-                         project_status_data['field_id'], 
-                         [list_name]
-                     )
-                     if new_map:
-                         project_status_data['options'] = new_map
-                         project_options = list(project_status_data['options'].keys())
+                # Column creation moved to batch step above to prevent destructive ID changes
 
                 # Check Column Verification
                 column_exists = list_name.lower() in project_options
@@ -808,6 +879,8 @@ def process_backups(config, mode="all", board_filter=None):
                 processed_count = 0
                 
                 for idx, card in enumerate(cards_in_list):
+                    # Reduce API aggression to prevent rate limits
+                    time.sleep(2.0)
                     print(f"    [{idx+1}/{len(cards_in_list)}] Card: {card['name']}")
                     
                     issue_url = None
@@ -845,8 +918,15 @@ def process_backups(config, mode="all", board_filter=None):
                                     # Using a stricter substring check on the text itself.
                                     
                                     author = tc.get('memberCreator', {}).get('fullName', 'Unknown')
-                                    date_str = tc.get('date', '').split('T')[0]
-                                    comment_block = f"> **{author}** ({date_str}):\n> {text}"
+                                    username = tc.get('memberCreator', {}).get('username', '')
+                                    date_full = tc.get('date', '').replace('T', ' ').replace('.000Z', '')
+                                    
+                                    # Format: "Author (@username) on YYYY-MM-DD HH:MM:SS"
+                                    header = f"**{author}**"
+                                    if username: header += f" (@{username})"
+                                    header += f" on {date_full}"
+                                    
+                                    comment_block = f"> {header}:\n> {text}"
                                     
                                     print(f"      [Checker] Missing comment from {author}. Adding...")
                                     gh_client.add_comment(issue_url, comment_block)
@@ -893,9 +973,16 @@ def process_backups(config, mode="all", board_filter=None):
                             comments_section = "\n\n### 💬 Trello Comments\n"
                             for c in comments:
                                 author = c.get('memberCreator', {}).get('fullName', 'Unknown')
-                                date_str = c.get('date', '').split('T')[0]
+                                username = c.get('memberCreator', {}).get('username', '')
+                                date_full = c.get('date', '').replace('T', ' ').replace('.000Z', '') # Full ISO mostly
                                 text = c.get('data', {}).get('text', '')
-                                comments_section += f"> **{author}** ({date_str}):\n> {text}\n\n"
+                                
+                                # Format: "Author (@username) on YYYY-MM-DD HH:MM:SS"
+                                header = f"**{author}**"
+                                if username: header += f" (@{username})"
+                                header += f" on {date_full}"
+                                
+                                comments_section += f"> {header}:\n> {text}\n\n"
                         
                         body = f"{desc}\n{comments_section}\n\n---\n*Imported from Trello List: {list_name}*"
                         
@@ -918,8 +1005,12 @@ def process_backups(config, mode="all", board_filter=None):
                              pass
 
                         list_label = f"List: {list_name}"
+                        # Ensure we categorize by list using labels (as per old version)
+                        print(f"      [Label] Categorizing with label: '{list_label}'")
                         if gh_client.create_label(target_repo, list_label, "ededed"):
                             final_labels.append(list_label)
+                        else:
+                            print(f"      [Label] Warning: Failed to create label '{list_label}'.")
                         
                         print(f"      Creating issue...", end="", flush=True)
                         issue_url = gh_client.create_issue(target_repo, card['name'], body, final_labels)
