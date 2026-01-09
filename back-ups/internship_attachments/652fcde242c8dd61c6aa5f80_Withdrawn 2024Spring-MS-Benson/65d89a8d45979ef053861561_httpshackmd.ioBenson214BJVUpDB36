@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="dev" data-themeable="true">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="csrf-token" content="XTw02NAW-0L8KXw10e_fqdChxjrh8-QDbMnQ">
+    
+    
+    <meta name="description" content="NS3 802.11e">
+    
+    <title>WiFi 802.11e - HackMD</title>
+    <link rel="icon" type="image/png" href="https://hackmd.io/favicon.png">
+	<link rel="apple-touch-icon" href="https://hackmd.io/apple-touch-icon.png">
+	<!--  meta value for server side given sign in boolean -->
+    <meta name="signin" content="false">
+
+    
+<script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+  window.domain = 'hackmd.io'
+  window.urlpath = ''
+  window.debug = false || window.localStorage.getItem('HMD_DEBUG_FLAG') === 'true'
+  window.version = '1.3.0'
+  window.brand = 'HackMD'
+
+  
+  window.NOTE_ID = 'hL593GnBQWu4ySXjTkIbQQ'
+  
+
+  window.GOOGLE_DRIVE_API_KEY = 'AIzaSyAHmcP5gL_64ZafuAYOvJruFAIaYgHQaY4'
+  window.GOOGLE_DRIVE_CLIENT_ID = '65857506266-76uhhee8se8dgs1i0q8fhtj1prg0ar27.apps.googleusercontent.com'
+  window.DROPBOX_APP_KEY = 'rdoizrlnkuha23r'
+  
+  window.PLANTUML_SERVER = 'https://ptuml.hackmd.io'
+
+  window.ASSET_URL = 'https://assets.hackmd.io'
+
+  window.USER_CAN_CREATE_TEAM = true
+  window.USER_CAN_DELETE_ACCOUNT = true
+  window.USER_DELETE_ACCOUNT_VIA_EMAIL = true
+  window.PAYMENT_ENABLED = true
+  window.PAYMENT_PROMOTION_BANNER_ENABLED = false
+  window.GITHUB_SYNC_ENABLED = true
+  window.GITLAB_SYNC_ENABLED = false
+  window.GITLAB_SYNC_BASE_URL = ''
+  window.VCS_SYNC_MODE = 'github'
+  window.VCS_PROVIDER_NAME = 'GitHub'
+  window.FREE_TEAM_NUM = 20
+  window.FREE_TEAM_MEMBER_NUM = 3
+  window.FREE_PUBLIC_TEAM_NUM = 10
+  window.NEO_OVERVIEW_UI = true
+  window.NEO_PROFILE_UI = true
+
+  
+      window.FOLDER_ENABLE = true
+  
+
+  
+  window.EE_SITE_ENABLE = false
+  window.EE_SITE_NAME = 'false'
+  window.EE_SITE_LINK = 'false'
+  window.EESITE_INFO = false
+  window.ENTERPRISE_DISCOVERY_ENABLE = false
+  window.ENTERPRISE_DISCOVERY_TEAM = true
+  window.ENTERPRISE_DISCOVERY_NOTE = true
+  window.ENTERPRISE_DISCOVERY_VIEW_PERMISSION = 'guest'
+  
+  window.ALLOW_ANONYMOUS = true
+  window.ALLOW_ANONYMOUS_EDIT = false
+  window.ALLOW_DOWNLOAD_PDF = true
+  window.PUBLIC_OVERVIEW = false
+  window.INTERNAL_PUBLIC_OVERVIEW = false
+  window.FULL_TEXT_SEARCH_ENABLE = false
+  window.ALGOLIA_SEARCH_ENABLE = true
+  window.MARKETING_EMAIL_ENABLE = true
+  window.EMAIL_INVITATION_ENABLE = true
+  window.OFFLINE_ACCESS = true
+  
+  
+  
+    window.WALLET_CONNECT_PROJECT_ID = '91d6fa182b725b5895a17a170a5878c1'
+  
+  window.API_MANAGEMENT_UI_ENABLE = true
+  window.FEEDBACK_UI_ENABLE = true
+  window.PUBLISH_ENABLE = true
+
+  
+
+  
+  window.SHOW_HOT_NOTES = false
+  
+
+  
+  window.HOT_NOTES_TIME_TYPE = 'week'
+  
+
+  
+  window.SHOW_OVERVIEW = false
+  
+
+  
+  window.MENTIONS = {}
+  
+
+  
+  window.MENTION_ANCHORS = []
+  
+
+  
+  window.COMMENT_ANCHORS = []
+  
+
+  
+  window.IS_OWNER = false
+  
+
+  
+  window.IS_TEAM_ADMIN = false
+  
+
+  
+  window.IS_TEAM_MEMBER = false
+  
+
+  
+  window.IS_INVITEE_ADMIN = false
+  
+
+  
+  window.USER_PROFILE = '%7B%22name%22%3A%22Guest%20Nichols%22%7D'
+  
+
+  
+  window.VERSION_TIME = '1708912953757'
+  
+
+  
+  window.canEdit = false
+  
+
+  
+  window.canWriteComment = false
+  
+
+  
+  window.canHideComment = false
+  
+
+  window.TRASH_NOTE_DELETE_AFTER_FREE = 3
+  window.TRASH_NOTE_DELETE_AFTER_PAID = 30
+
+  
+    window.ENABLED_PREVIEW_FEATURE = {}
+  
+
+  
+    window.ACTIVE_PREVIEW_FEATURE = ["beta-slide-preview","beta-note-insights"]
+  
+
+  
+    window.IS_OWNER_UPGRADED = false
+  
+
+  
+    window.IMGUR_FALLBACK_CDN = 'https://imgur-backup.hackmd.io'
+  
+
+  
+    window.CLOUD_META_UI = true
+  
+  
+    window.CLOUD_META_API = true
+  
+  
+    window.CLOUD_META_MIGRATION = false
+  
+  
+    window.YAML_METADATA_ENABLED = false
+  
+
+  
+    window.NOTE_CAPACITY_LIMIT = 50
+  
+
+  
+    window.DOCUMENT_MAX_LENGTH = 100000
+  
+
+  
+    window.SOCIAL_NETWORK_FEATURES_ENABLED = true
+  
+
+  
+    window.PUBLISHMENT_MODERATION_ENABLED = true
+  
+
+  
+    window.COMMENT_ENABLED = true
+  
+
+  
+    window.COMMENT_PERMISSION = "signed_in_users"
+  
+
+  window.SUGGEST_EDIT_ENABLED = true
+  
+    window.SUGGEST_EDIT_ENABLED = true
+  
+
+  
+    window.SUGGEST_EDIT_PERMISSION = "signed_in_users"
+  
+  
+    window.canWriteSuggestEdit = false
+  
+
+  window.CITATION_ENABLED = true
+
+  window.NOTE_FROM_COMMENT_ENABLED = true
+
+  
+    window.NOTE_FEATURES = {"emoji-reply":"signed_in_users","citation":"disabled"}
+  
+
+  
+    window.REALTIME_CLIENT_WITH_CREDENTIALS = false
+  
+
+  
+    window.DEBUG_DISCONNECT_SOCKET_WHEN_OFFLINE = false
+  
+
+  
+
+  
+    window.PREFERRED_UI_THEME = "dark"
+  
+
+  
+
+  
+    window.CUSTOM_STYLE_ENABLED = "true"
+  
+
+  
+    window.USE_NEW_LOGO = true
+  
+
+  
+    window.ITERABLE_ENABLED = true
+  
+  
+    window.ITERABLE_API_KEY = "c2c36a44c2614fb19aa3b46d660bbce2"
+  
+
+  
+    window.CUSTOMERIO_ENABLED = false
+  
+  
+    window.CUSTOMERIO_WRITE_KEY = ""
+  
+  
+    window.CUSTOMERIO_SITE_ID = ""
+  
+
+  
+    window.TEXT_SELECTION_CHANGED = false
+  
+
+  
+    window.CAN_VIEW_HISTORY_AT_REVISION = false
+  
+
+  
+    window.GUIDED_COMMENT_ENABLED = true
+  
+
+  
+    window.ENCODED_SESSION_ID = "t0vE88H9Ozjk5xfzuGZFI1XaLe8+ovjYQACUMkaUlMk="
+  
+
+  
+    window.FOLDER_TRANSPORTATION = {"version":"v2","strategy":"canary-by-workspace-id","canaryThreshold":"F","rejectUnsupportedSchema":false}
+  
+
+  
+    window.COMMUNITY_ENABLED = false
+  
+
+  
+    window.NOTE_INSIGHTS_DEBUG_API_ENABLED = false
+  
+</script>
+
+
+    
+<!-- Google Tag Manager -->
+<script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-KLW9Z3');</script>
+<!-- End Google Tag Manager -->
+
+
+    
+
+
+
+
+
+
+    <meta property="fb:app_id" content="1436904003272070">
+
+
+
+    <meta name="robots" content="noindex, nofollow">
+
+
+
+    <meta name="twitter:image:src" content="https://hackmd.io/images/media/HackMD-neo-og.jpg">
+    <meta name="twitter:image:alt" content="WiFi 802.11e - HackMD">
+
+
+<meta name="twitter:site" content="@hackmdio" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="WiFi 802.11e - HackMD" />
+
+
+    <meta name="twitter:description" content="NS3 802.11e" />
+
+
+
+    <meta property="og:image" content="https://hackmd.io/images/media/HackMD-neo-og.jpg">
+    <meta property="og:image:alt" content="WiFi 802.11e - HackMD">
+
+
+<meta property="og:site_name" content="HackMD" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="WiFi 802.11e - HackMD" />
+
+
+    <meta property="og:description" content="NS3 802.11e" />
+
+
+
+
+<!-- article meta -->
+
+
+
+
+
+<!-- profile meta -->
+
+
+
+     <link href="https://assets.hackmd.io/build/font-vendor.ea8218d7d4f468b2c430.css" rel="stylesheet"><link href="https://assets.hackmd.io/build/common-vendor.fd34b1d1ad1390fa8864.css" rel="stylesheet"><link href="https://assets.hackmd.io/build/pretty-vendor.8a8442e30c89d342d615.css" rel="stylesheet"><link href="https://assets.hackmd.io/build/pretty.24c30140c371c76b56d3.css" rel="stylesheet">
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+<!--[if lt IE 9]>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js" integrity="sha256-3Jy/GbSLrg0o9y5Z5n1uw0qxZECH7C6OQpVBgNFYa0g=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/respond.js/1.4.2/respond.min.js" integrity="sha256-g6iAfvZp+nDQ2TdTR/VVKJf3bGro4ub5fvWSWVRi2NE=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.5.9/es5-shim.min.js" integrity="sha256-8E4Is26QH0bD52WoQpcB+R/tcWQtpzlCojrybUd7Mxo=" crossorigin="anonymous"></script>
+<![endif]-->
+
+    
+
+
+    <script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+  window.__shouldIgnoreTracker = function() {
+    const isDebug = window.debug === true
+    const isLocal = /^localhost$|^127(\.[0-9]+){0,2}\.[0-9]+$|^\[::1?\]$|^local\.localhost$/.test(location.hostname) || location.protocol === 'file:'
+    const isAutomation = Boolean(window._phantom || window.__nightmare || window.navigator.webdriver || window.Cypress)
+    return isDebug || isLocal || isAutomation
+  }
+</script>
+
+<!-- plausible -->
+<script defer data-domain="hackmd.io" src="https://tracks.hackmd.io/js/script.js"></script>
+<script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+  window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments); }
+  const keyboardWhiteList = ['a', 'span', 'button']
+
+  function getTaggedEventAttributes (e) {
+    const eventAttrs = { name: null, props: {} }
+    if (!e || !e.classList) return eventAttrs
+    const psEvent = /plausible-event-(.+)(=|--)(.+)/
+    for (const className of [...e.classList]) {
+      const [, key, , val] = className.match(psEvent) || []
+      if (!key || !val) continue
+      const value = val.replace(/\+/g, ' ')
+      switch (key.toLowerCase()) {
+        case 'name':
+          eventAttrs.name = value
+          break
+        default:
+          eventAttrs.props[key] = value
+          break
+      }
+    }
+    return eventAttrs
+  }
+
+  function shouldIgnore () {
+    return window.__shouldIgnoreTracker() || window.localStorage.getItem('plausible_ignore') === 'true'
+  }
+
+  function handler (e) {
+    if (!window.plausible) return
+    if (!e.target || !('className' in e.target)) return
+    const ele = e.target
+
+    const eventAttrs = getTaggedEventAttributes(ele)
+    if (!eventAttrs.name) return
+    if (ele?.href) eventAttrs.props.url = ele.href
+
+    if (shouldIgnore()) {
+      if (window.debug) logDebugEventMsg(eventAttrs)
+      return
+    }
+    window.plausible(eventAttrs.name, { props: eventAttrs.props })
+  }
+
+  function logDebugEventMsg (eventAttrs) {
+    console.warn(
+      `Ignoring Event: "${eventAttrs.name}"`,
+      eventAttrs,
+    )
+  }
+
+  function keydownHandler (e) {
+    if (e.key !== 'Enter') return
+    if (e.target.nodeName.toLowerCase() === 'input') {
+      switch (e.target.type.toLowerCase()) {
+        case 'submit':
+        case 'button':
+        case 'reset':
+        case 'checkbox':
+        case 'radio':
+        case 'file':
+        case 'image':
+        case 'color':
+          break
+        default:
+          return
+      }
+    } else if (!keyboardWhiteList.includes(e.target.nodeName.toLowerCase())) {
+      return
+    }
+    handler(e)
+  }
+
+  document.addEventListener('mousedown', handler)
+  document.addEventListener('keydown', keydownHandler)
+</script>
+
+    
+<script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+  window.publishProps = JSON.parse(`{"isOwnerAnonymous":false,"isOwnedByTeam":false,"ownerInfo":{"name":"Benson214","path":"Benson214","avatarUrl":"https%3A%2F%2Fwww.gravatar.com%2Favatar%2F1028091d149795b65da388935e266f70%3Fs%3D96","description":null},"isPublished":false,"createTime":1708649804480,"updateTime":1708912953757,"vcsSyncMode":"github","vcsProviderName":"GitHub","canEdit":false,"hardBreaks":true,"onlyOwnerCanEdit":true,"isCommentEnabled":true,"likedCount":0,"isNotificationEnabled":true,"notificationType":"never","hasEmail":false,"canWriteComment":false,"viewCount":58,"markdown":"%23%20802.11e%0A!%5B%E8%9E%A2%E5%B9%95%E6%93%B7%E5%8F%96%E7%95%AB%E9%9D%A2%202024-02-23%20085742%20(1)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FSydcdzUh6.png)%0A-%20**IEEE%20802.1%20Management**%3A%20This%20refers%20to%20network%20management%20and%20includes%20bridging%20and%20Virtual%20LANs%20(VLANs).%20The%20standards%20like%20802.1d%20for%20bridging%20and%20802.1q%20for%20VLAN%20are%20specified%20here.%0A-%20**802.2%20Logical%20link%20control%20(LLC)**%3A%20This%20part%20of%20the%20IEEE%20802%20standard%20defines%20the%20Logical%20Link%20Control%2C%20which%20is%20the%20top%20sublayer%20in%20the%20data%20link%20layer.%20LLC%20is%20used%20for%20addressing%20and%20control%20of%20the%20data%20link.%0A-%20**802.3**%3A%20This%20refers%20to%20Ethernet%2C%20a%20wired%20networking%20standard.%20It%20includes%20both%20the%20Media%20Access%20Control%20(MAC)%20sublayer%20and%20the%20Physical%20Layer%20(PHY).%0A-%20**802.5**%3A%20This%20is%20for%20Token%20Ring%20networks%2C%20also%20detailing%20the%20MAC%20and%20PHY%20layers%0A-%20**802.11**%3A%20This%20is%20the%20standard%20for%20wireless%20networking%2C%20commonly%20known%20as%20Wi-Fi.%20It%20also%20has%20MAC%20and%20PHY%20sublayers%2C%20with%20various%20PHY%20types%20like%20FHSS%2C%20DSSS%2C%20OFDM%2C%20and%20HR%2FDSSS%2C%20which%20refer%20to%20different%20types%20of%20radio%20technologies%20used.%0A-%20**802.11%20Variants**%3A%0A%20%20%20%20-%20**802.11%20FHSS%20PHY**%3A%20Frequency-Hopping%20Spread%20Spectrum%20Physical%20Layer.%0A%20%20%20%20-%20**802.11%20DSSS%20PHY**%3A%20Direct-Sequence%20Spread%20Spectrum%20Physical%20Layer.%0A%20%20%20%20-%20**802.11a%20OFDM%20PHY**%3A%20Orthogonal%20Frequency-Division%20Multiplexing%20for%20802.11a%2C%20a%20standard%20for%20wireless%20networking%20that%20operates%20in%20the%205%20GHz%20band.%0A%20%20%20%20-%20**802.11b%2Fg%20HR%2FDSSS%20PHY**%3A%20High%20Rate%2FDirect%20Sequence%20Spread%20Spectrum%20for%20802.11b%2Fg%2C%20standards%20for%20wireless%20networking%20that%20operate%20in%20the%202.4%20GHz%20band.%0A%23%23%20QoS%20Requirement%0A%0A-%20Parameters%20of%20traffic%20stream%0A%20%20%20%20-%20Controlled%20transmission%20rate%0A%20%20%20%20%20%20%20%20-%20Peak%20rate%20%26%20Average%20rate%0A%20%20%20%20-%20Controlled%20Service%20Interval%0A%20%20%20%20%20%20%20%20-%20Minimum%20%26%20Maximum%0A%20%20%20%20-%20Burst%20Size%20on%20peak%20rate%0A-%20Requirements%0A%20%20%20%20-%20Bounded%20Delay%20(for%20real-time%20%26%20smooth%20interaction)%0A%20%20%20%20-%20Bounded%20Jitter%20(for%20smooth%20playout)%0A-%20Solution%20in%20device%3A%20Jitter%20Buffer%0A-%20Solution%20in%20network%3A%20Prioritized%20Transmission%0A%0A%23%23%20Two%20Kinds%20of%20QoS%0A%0A1.%20Parameterized%20QoS%3A%0A%20%20%20%201.%20A%20strict%20QoS%20requirement%20expressed%20quantitatively%20in%0A%20%20%20%20terms%20of%20data%20rate%2C%20delay%20bound%20etc.%20(ex.%20BW%20of%2010%20Mbps%2C%0A%20%20%20%20delay%20bound%20of%2010ms)%0A2.%20Prioritized%20QoS%3A%0A%20%20%20%201.%20Loose%20QoS%20requirement%20expressed%20in%20terms%20of%20relative%0A%20%20%20%20delivery%20priorit%0A%0A%23%23%20Is%20802.11%20enough%20for%20QoS%3F%0A%0A1.%20DCF%20can%20not%20provide%20QoS%20trivially%0A%20%20%20%201.%20DCF%3A%20%22Distributed%20Coordination%20Function%22%2C%20which%20is%20a%20basic%20media%20access%20control%20(MAC)%20protocol%20in%20the%20IEEE%20802.11%20wireless%20LAN%20standard.%20uses%20a%20CSMA%2FCA%20mechanism.%0A2.%20PCF%20is%20not%20enough%EF%BC%88Point%20Coordination%20Function%EF%BC%89%0A%20%20%20%201.%20PCF%20%3A%20An%20optional%20addition%20to%20DCF%2C%20designed%20to%20support%20networks%20containing%20latency-sensitive%20data%20transmission%0A%20%20%20%202.%20Only%201%20frame%20can%20be%20sent%20at%20each%20polling%0A%20%20%20%203.%20Point%20Coordinator%20(PC)%20does%20not%20know%20the%0A%20%20%20%20QoS%20requirement%20of%20traffic%0A%20%20%20%204.%20Can%20not%20guarantee%20the%20delay%20and%20jitter%0A%20%20%20%20bound%0A%0A%23%23%20Brief%20of%20IEEE%20802.11e%0A%0A-%20Defined%20at%20IEEE%20802.11%20Task%20Group%20E%0A-%20Goal%3A%20Providing%20QoS%0A%20%20%20%20-%20Minimize%20Latency%0A%20%20%20%20-%20Maximize%20throughput%0A%20%20%20%20-%20Define%20traffic%20models%20for%20both%20Ad-hoc%20and%0A%20%20%20%20Infrastructure%0A-%20Approach%3A%20Enhance%20the%20MAC%20(802.11)%0A%0A%23%23%20Major%20Enhancements%20in%20802.11e%0A%0A-%20Basic%20elements%20for%20QoS%0A%20%20%20%20-%20Traffic%20Differentiation%0A%20%20%20%20-%20Concept%20of%20Transmission%20Opportunity%20(TXOP)%0A-%20New%20Contention-based%20channel%20access%0A%20%20%20%20-%20Enhanced%20Distributed%20Channel%20Access%20(EDCA)%20(Contention-based)%0A%0A-%20New%20Contention-free%20channel%20acces%0A%20%20%20%20-%20HCF%20Controlled%20Channel%20Access%20(HCCA)%20(Contention%20Free)%0A%0A-%20Other%20new%20mechanisms%20for%20higher%20throughput%0A%20%20%20%20-%20Block%20Acknowledgement%20(Block%20Ack)%0A%20%20%20%20-%20Direct%20Link%20Setup%20(DLS)%0A%20%20%20%20-%20Automatic%20Power-Save%20Delivery%20(APSD)%0A%20%20%20%20%20%20%20%20%0A%0A%23%23%20Terms%0A%0A-%20QoS%20Facility%0A%20%20%20%20-%20The%20mechanisms%20for%20QoS%20defined%20in%20802.11e%0A-%20QAP%0A%20%20%20%20-%20Access%20Point%20supporting%20QoS%20facility%0A-%20QSTA%0A%20%20%20%20-%20Station%20supporting%20QoS%20facility%0A-%20QBSS%0A-%20Hybrid%20Coorinator%20(HC)%0A-%20Access%20Category%20(AC)%0A-%20User%20Priority%20(UP)%0A-%20Traffic%20Category%20(TC)%0A-%20Traffic%20Specification%20(TSPEC)%0A-%20Traffic%20Stream%20(TS)%0A-%20Traffic%20Identifier%20(TID)%0A%0A%23%20Traffic%20Differentiation%0A%0A%23%23%20Classification%20of%20QoS%20Data%0A%0A-%20New%20frame%20subtype%3A%20QoS%20Data%0A!%5BUntitled%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FByZQYf8n6.png)%0A-%20Each%20MSDU%20of%20QoS%20Data%20is%20classified%20as%20one%20kind%20of%20traffic%0A%20%20%20%20-%20Identified%20by%20TID%20field%20in%20frame%20header%0A%20%20%20%20%20%20%20%20-%20EX%3A%0A%20%20%20%20%20%20%20%20%20%20%20%20Voice%20traffic%3A%20TID%20%3D%201%0A%20%20%20%20%20%20%20%20%20%20%20%20Video%20traffic%3A%20TID%20%3D%202%0A%20%20%20%20%20%20%20%20%20%20%20%20Data%20traffic%3A%20TID%20%3D%203%0A%20%20%20%20%20%20%20%20%20%20%20%20%0A-%20Two%20types%20of%20traffic%20classification(Ensure%20critical%20data%20such%20as%20voice%20and%20video%20gets%20the%20network%20resources%20it%20needs.)%0A%20%20%20%20-%20By%20User%20Priority%20(UP)(for%20prioritized%20QoS)%0A%20%20%20%20-%20By%20Traffic%20Specification%20(TSPEC)(for%20parameterized%20QoS%0A%0A%23%23%20User%20Priority%0A%0A-%208%20User%20Priorities%3A%0A%20%20%20%20-%20Identical%20to%20IEEE%20802.1D%20priority%20tags%0A!%5BUntitled%20(1)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FrkRUYfL3T.png)%0A-%20Priority%20Determination%20of%20MSDU%0A%20%20%20%20-%20Directly%3A%0A%20%20%20%20%20%20%20%20-%20provided%20at%20MAC%20SAP%20by%20upper-layer%20software%0A%20%20%20%20-%20Indirectly%3A%0A%20%20%20%20%20%20%20%20-%20defined%20in%20TSPEC%E2%80%99s%0A%0A%0A%23%23%20Access%20Category%20(AC)%0A%0A-%20Rules%0A%20%20%20%20-%20One%20UP(User%20Priority)%20belongs%20to%20one%20AC%0A%20%20%20%20-%20Each%20AC%20contains%20two%20UP%0A%20%20%20%20-%20Traffic%20of%20higher%20UP%20will%20be%20transmitted%20first%20in%20one%20AC%0A-%20In%20EDCA%2C%20media%20access%20is%20based%20on%20the%20AC%20of%20MSDU%0A-%204%20AC%E2%80%99s%20are%20defined%0A%20%20%20%20-%20AC_BK%20(background)%0A%20%20%20%20-%20AC_BE%20(best-effort)%0A%20%20%20%20-%20AC_VI%20(Video)%0A%20%20%20%20-%20AC_VO%20(Voice)%0A-%20In%20EDCA%2C%20the%20size%20of%20Contention-Window%20(CW)%20Inter-frame%20space%20(IFS)%20is%20dependent%20on%20AC%0A%0A%23%23%20Traffic%20Specification%0A-%20Traffic%20Specification%20(TSPEC)%0A%20%20%20%20-%20Characteristics%20of%20traffic%20streams%20created%20by%20negotiation%20between%20QSTA%EF%BC%88Quality%20of%20Service%20Traffic%20Stream%20Aware%EF%BC%89%20and%20HC%20(%20Hybrid%20Coordinator%EF%BC%89%0A%20%20%20%20-%20HC%20can%20schedule%20the%20polling%E8%BC%AA%E5%B7%A1%20within%20CFP%EF%BC%88Contention-Free%20Period%EF%BC%89%20and%20the%0A%20%20%20%20data%20transmission%20of%20the%20TS%20accordingly%0A%20%20%20%20-%20At%20most%208%20TSPEC%20can%20be%20registered%0A%20%20%20%20-%20Identified%20by%20TSID%EF%BC%88Traffic%20Stream%20Identifier%20)%20(0~7)%0A-%20TSPEC%20Setup%20%26%20Delete%0A%20%20%20%20-%20Use%20Management%20Frame%20with%20new%20subtype%20Action%0A%20%20%20%20%20%20%20%20-%20ADDTS%20request%20%26%20ADDTS%20response%3A%20for%20TSPEC%20setup%0A%20%20%20%20%20%20%20%20-%20DELTS%3A%20for%20TSPEC%20delete%0A%0A!%5BUntitled%20(2)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FB1aiYfIn6.png)%0A%0A%23%23%20MAC%20Frame%20Formats%0A%0A-%20MAC%20frame%20format%20(QoS%20Data)%3A%0A!%5BUntitled%20(3)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FHk6htfU2a.png)%0A*%20QoS%20Control%20Field%3A%0A%0A!%5BUntitled%20(4)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FSJx0KMU26.png)%0A-%20In%20QoS%20control%20field%0A%20%20%20%20-%20TID%3A%20Traffic%20Identifier%0A%20%20%20%20-%20EOSP%3A%20End%20of%20Service%20Period%0A%20%20%20%20%20%20%20%20-%20Service%20period%20is%20ended%20after%20successful%0A%20%20%20%20%20%20%20%20transmission%20of%20this%20frame%0A%20%20%20%20%20%20%20%20-%20Used%20with%20APSD(Automatic%20Power-Save%20Delivery)%0A%20%20%20%20-%20QAP%20PS%20Buffer%20State%0A!%5BUntitled%20(5)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FH1y15fL2a.png)%0A-%20Distinguish%20MSDUs%20of%20different%20traffic%20types%0A%20%20%20%20-%20Range%3A%200-15%0A!%5BUntitled%20(6)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FHygxqzUnT.png)%0A%0A%23%23%20Action%20Frames%3A%20ADDTS%20request%20%26%20ADDTS%20response%0A!%5BUntitled%20(7)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FHJVzcfLna.png)%0A%23%23%20TSPEC%20Element%20Format%0A!%5BUntitled%20(8)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FB1G79zLhp.png)%0A!%5BUntitled%20(9)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FBkK7qzL2p.png)%0A%23%23%20Traffic%20Classification%20(TCLAS)Element%0A-%20For%20identifying%20the%20TS%20to%20which%20the%20incoming%20MSDUs%20belong%0A!%5BUntitled%20(10)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FrkAN5zL3a.png)%0A!%5BUntitled%20(11)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FH1NBcM82T.png)%0A%23%23%20Schedule%20Element%0A-%20HC%20contains%20Schedule%20element%20in%20ADDTS%20response%20if%20incoming%20ADDTS%20request%E2%80%99s%20TS_INFO.Schedule%20%3D%201.%0A-%20If%20TS_Info.Access_Policy%20includes%20EDCA%2C%20the%20schedule%20element%20indicate%20the%20polling%20schedule%20for%20this%20TS%20in%20HCF%0A-%20TS_Info.APSD%20%3D%201%2C%20the%20schedule%20element%20indicate%20the%20wakeup%20schedule%20for%20transmission%0A%0A!%5BUntitled%20(12)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FryOUcG8n6.png)%0A%23%20Hybrid%20Coordination%20Function(HCF)%0A%23%23%20HCF%20Brief%0A%0A-%20In%20802.11%2C%20two%20access%20methods%0A%20%20%20%20-%20Distributed%20Coordination%20Function%20(DCF)%0A%20%20%20%20-%20Point%20Coordination%20Function%20(PCF)%0A-%20In%20802.11e%2C%20HCF%20access%20method%20is%20added%2C%0Aincluding%0A%20%20%20%20-%20Contention-Based%20channel%20access%E2%80%93%20EDCA%0A%20%20%20%20%20%20%20%20-%20Combined%20with%20DCF%0A%20%20%20%20-%20Controlled%20channel%20access%20%E2%80%93%20HCCA%0A%20%20%20%20%20%20%20%20-%20Similar%20to%20PCF%20but%20with%20enhancement%0A%0A%23%23%20MAC%20Architecture%0A!%5BUntitled%20(14)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FSkp7S7Uha.png)%0A*%20This%20diagram%20shows%20how%20to%20choose%20different%20access%20methods%20based%20on%20different%20requirements%20and%20QoS%20parameters.%20As%20can%20be%20seen%20from%20the%20arrow%20on%20the%20left%2C%20for%20QoS%20services%20that%20require%20priority%20processing%2C%20PCF%20or%20HCF%20must%20be%20used.%20For%20services%20that%20do%20not%20require%20competition%2C%20that%20is%2C%20non-QoS%20services%2C%20you%20can%20choose%20not%20to%20use%20PCF%2C%20which%20is%20usually%20optional.%20The%20arrow%20on%20the%20right%20indicates%20that%20HCF%20is%20necessary%20for%20QoS%20services%20that%20require%20parameterization%2C%20especially%20the%20HCCA%20part.%0A%0A%23%23%20EDCA%0A%0A-%20Difference%20from%20original%20DCF%0A%20%20%20%20-%20Contention%20between%20ACs%20(Not%20STAs)%0A%20%20%20%20-%20AC%20Contends%20for%20Transmission%20Opportunity(TXOP)%20in%20unit%20of%2032%20microseconds.%0A%20%20%20%20-%20New%20Inter-frame%20Space%20(IFS)%20for%20each%20AC%3AArbitration%20Interframe%20Space%20(AIFS)%0A%23%23%20Reference%20implementation%0A!%5BUntitled%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FrkAdF6826.png)%0A*%20EDCA%20reference%20implementation%20model%3A%0A%0A%20%20%20%20-%20**MSDU%2C%20UP**%3A%20This%20represents%20the%20MAC%20Service%20Data%20Unit%20(MSDU)%20and%20User%20Priority%20(UP).%20MSDU%20is%20a%20data%20unit%20that%20is%20sent%20to%20the%20MAC%20sublayer%20to%20prepare%20for%20encapsulation%2C%20and%20the%20user%20priority%20is%20an%20attribute%20of%20the%20data%20packet%20that%20is%20used%20to%20determine%20the%20priority%20of%20its%20transmission.%0A%20%20%20%20-%20**Mapping%20to%20Access%20Category**%3A%20This%20means%20that%20data%20will%20be%20mapped%20to%20different%20access%20categories%20(Access%20Category%2C%20AC)%20based%20on%20user%20priority.%20In%20EDCA%2C%20there%20are%20four%20different%20access%20categories%2C%20which%20are%20used%20for%20data%20transmission%20with%20different%20priorities.%0A%20%20%20%20-%20**Transmit%20queues%20for%20ACs**%3A%20Each%20access%20class%20has%20its%20own%20transmission%20queue%20(AC).%20This%20means%20that%20based%20on%20the%20priority%20of%20the%20data%2C%20it%20will%20be%20placed%20in%20the%20corresponding%20queue%20waiting%20for%20transmission.%0A%20%20%20%20-%20**Per-queue%20EDCA%20functions%20with%20internal%20collision%20resolution**%3A%20Each%20queue%20has%20its%20own%20EDCA%20functions%2C%20which%20include%20algorithms%20for%20deciding%20when%20packets%20can%20start%20being%20transmitted.%20These%20features%20also%20include%20internal%20collision%20resolution%20mechanisms%20to%20handle%20collisions%20that%20occur%20when%20multiple%20packets%20attempt%20to%20use%20the%20same%20wireless%20channel%20at%20the%20same%20time.%0A%0A%23%23%20IFS%20in%20802.11%20DCF%3AContention%20between%20STAs%0A!%5Bimage%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FBkcg_7UhT.png)%0AThis%20figure%20shows%20the%20concept%20of%20Interframe%20Space%20(IFS)%20under%20the%20Distributed%20Coordination%20Function%20(DCF)%20in%20the%20IEEE%20802.11%20protocol.%20In%20the%20802.11%20Wireless%20LAN%20(WLAN)%20standard%2C%20DCF%20is%20a%20part%20of%20the%20Media%20Access%20Control%20(MAC)%20protocol%20used%20to%20control%20access%20contention%20between%20stations%20(STAs).%20Elements%20here%20include%3A%0A%0A-%20**DIFS%20(DCF%20Interframe%20Space)**%3A%20This%20is%20the%20lowest%20IFS%20and%20is%20used%20for%20instant%20access%20to%20data%20transfer%20when%20the%20media%20is%20idle%20for%20a%20duration%20equal%20to%20or%20exceeding%20DIFS.%0A-%20**PIFS%20(PCF%20Interframe%20Space)**%3A%20Used%20for%20access%20under%20the%20Point%20Coordination%20Function%20(PCF).%20It%20is%20shorter%20than%20DIFS%20and%20allows%20the%20point%20coordinator%20(PC)%20to%20access%20the%20medium%20faster%20in%20a%20distributed%20system.%0A-%20**SIFS%20(Short%20Interframe%20Space)**%3A%20It%20is%20the%20shortest%20of%20all%20IFS%20and%20is%20used%20for%20fast%20transmission%20of%20acknowledgment%20(ACK)%20packets%2C%20clear%20send%20(CTS)%20packets%20and%20fragmented%20packets.%0A-%20**Busy%20Medium**%3A%20Indicates%20that%20the%20medium%20is%20in%20use.%20(Channel%20status%20indication.%20If%20a%20station%20detects%20that%20the%20channel%20is%20busy%2C%20it%20means%20that%20there%20are%20other%20transmissions%20in%20progress%20at%20the%20current%20moment%20and%20must%20wait%20until%20the%20channel%20becomes%20free.)%0A-%20**Defer%20Access**%3A%20If%20the%20medium%20is%20busy%2C%20access%20must%20be%20deferred.%0A-%20**Contention%20Window**%3A%20A%20random%20delay%20that%20a%20site%20must%20wait%20before%20trying%20to%20access%20the%20medium.%20It%20randomizes%20access%20attempts%20to%20reduce%20the%20likelihood%20of%20collisions.%0A-%20**Backoff%20Window**%3A%20is%20part%20of%20the%20Contention%20Window%20and%20is%20part%20of%20the%20backoff%20algorithm%2C%20in%20which%20each%20STA%20randomly%20selects%20a%20time%20slot%20before%20attempting%20to%20transmit%20and%20decrements%20the%20backoff%20counter%20after%20each%20idle%20time%20slot.%0A-%20**Slot%20time**%3A%20is%20the%20smallest%20unit%20of%20time%2C%20used%20to%20define%20the%20time%20slot%20in%20the%20backoff%20window.%0A-%20**Select%20Slot%20and%20Decrement%20Backoff%20as%20long%20as%20medium%20is%20idle**%3A%20When%20the%20medium%20is%20idle%2C%20the%20STA%20will%20select%20a%20slot%20and%20start%20counting%20down%20its%20backoff%20counter.%20If%20the%20medium%20remains%20idle%20until%20the%20backoff%20counter%20reaches%20zero%2C%20the%20STA%20can%20attempt%20to%20transmit.%0A%0AThis%20process%20is%20to%20reduce%20collisions%20in%20the%20air%0A%23%23%20DCF%20Example%0A!%5BUntitled%20(15)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FBJgq_mUha.png)%0A(DCF%20also%20exists%20in%20802.11e%2C%20but%20mainly%20as%20a%20fallback%20without%20QoS%20requirements.)%0A%23%23%20IFS%20in%20EDCF%3AContention%20between%20ACs%0A!%5BUntitled%20(16)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FBJJiu7Ln6.png)%0AThe%20concept%20of%20TXOP%20in%20mac%20layer%0A%0AThe%20TXOP%20value%20may%20be%20specified%20in%20the%20configuration%20settings%20of%20the%20wireless%20access%20point%20(AP)%20or%20assigned%20by%20the%20network%20management%20system%20based%20on%20global%20policy.%0A%0A1.%20**SIFS%20(Short%20Interframe%20Space)**%3A%20The%20data%20frame%20is%20followed%20by%20a%20very%20short%20interval%2C%20used%20for%20operations%20with%20the%20highest%20priority%2C%20such%20as%20the%20receiver%20sending%20an%20acknowledgment%20frame%20(Ack).%0A2.%20**Acknowledgement%20Frame%20(Ack)**%3A%20The%20receiver%20sends%20an%20acknowledgment%20after%20SIFS%20to%20confirm%20that%20it%20has%20successfully%20received%20the%20previous%20data%20frame.%0A3.%20**DIFS%20(DCF%20Interframe%20Space)**%3A%20The%20standard%20time%20interval%20used%20in%20the%20Distributed%20Coordination%20Function%20(DCF)%20to%20start%20a%20new%20transmission%20attempt.%0A4.%20**PIFS%20(PCF%20Interframe%20Space)**%3A%20The%20time%20interval%20in%20Point%20Coordination%20Function%20(PCF)%20mode%2C%20which%20is%20shorter%20than%20DIFS%2C%20allows%20the%20central%20controller%20to%20prioritize%20access%20to%20the%20media.%0A5.%20**AIFS%5BAC_XX%5D%20and%20AIFS%5BAC_YY%5D**%3A%20These%20are%20the%20Arbitration%20Interframe%20Space%20in%20Enhanced%20Distributed%20Channel%20Access%20(EDCA)%2C%20used%20for%20traffic%20of%20different%20access%20categories%20(AC).%20Each%20type%20of%20traffic%20(such%20as%20background%2C%20best%20effort%2C%20video%20and%20voice)%20has%20its%20own%20AIFS%20to%20ensure%20QoS%20requirements%20are%20met.%20AIFS%5BAC_XX%5D%20and%20AIFS%5BAC_YY%5D%20represent%20different%20AIFS%20time%20intervals%20for%20traffic%20of%20different%20priorities.%0A6.%20**Contention%20Window**%3A%20This%20is%20a%20random%20wait%20time%20that%20determines%20how%20long%20a%20site%20should%20wait%20before%20attempting%20a%20transfer.%20It%20is%20designed%20to%20reduce%20the%20probability%20of%20collision.%20The%20size%20of%20the%20Contention%20Window%20is%20set%20based%20on%20each%20AC%2C%20not%20based%20on%20user%20priority.%0A7.%20**Next%20TXOP%20(Transmission%20Opportunity)**%3A%20This%20is%20the%20next%20transmission%20opportunity%2C%20that%20is%2C%20the%20time%20period%20during%20which%20the%20station%20can%20send%20a%20series%20of%20data%20frames%20without%20re-competing%20for%20the%20media.%0A%0A%23%23%20Arbitration%20Interframe%20Space(AIFS)%0A%0A-%20QSTA%20use%20AIFS%20to%20defer%20the%20contention%20window%20or%20transmission%20for%20each%20AC%0A-%20AIF%5BAC%5D%20%3D%20AIFSN%5BAC%5D%20x%20aSlotTime%20slot%20time%20%2B%20aSIFTime%0A%20%20%20%20%20-%20AIFSN%20(Arbitration%20Interframe%20Space%20Number)%20for%20each%20AC%20is%20broadcast%20via%20beacon%20frame%20containing%20%E2%80%98EDCA%20Parameter%20Set%E2%80%99%20element%0A-%20(DIFS%20%3D%202%20x%20aSlotTime%20%2B%20aSIFTime)%0A%20%20%20%20%20-%20**AIFS%5BAC%5D**%3A%20For%20a%20specific%20access%20class%20(AC)%2C%20this%20is%20the%20total%20time%20to%20wait%20after%20the%20channel%20becomes%20idle%20before%20data%20can%20be%20transmitted.%20AIFS%20can%20be%20different%20for%20each%20AC%2C%20allowing%20high-priority%20traffic%20to%20access%20the%20media%20faster.%0A%20%20%20%20%20-%20**AIFSN%5BAC%5D**%3A%20This%20is%20the%20AC-specific%20Arbitration%20Interframe%20Space%20Number%2C%20which%20determines%20the%20length%20of%20the%20AIFS.%20For%20high-priority%20traffic%2C%20the%20value%20of%20AIFSN%20is%20smaller%3B%20for%20low-priority%20traffic%2C%20the%20value%20of%20AIFSN%20is%20larger.%0A%20%20%20%20%20-%20**aSlotTime**%3A%20This%20is%20the%20length%20of%20the%20time%20slot%20in%20the%20802.11%20network.%20It%20is%20the%20basic%20unit%20of%20time%20and%20is%20used%20to%20calculate%20backoff%20time%20and%20AIFS.%20The%20time%20slot%20is%20fixed%20and%20determined%20by%20the%20physical%20conditions%20of%20the%20network.%0A%20%20%20%20%20-%20**aSIFSTime**%3A%20This%20is%20the%20shortest%20Interframe%20Space%2C%20used%20to%20separate%20the%20transmission%20of%20management%20and%20control%20frames%2C%20such%20as%20acknowledgment%20frames%20(ACK)%20and%20clear-to-send%20frames%20(CTS).%20It%20allows%20for%20quick%20responses%2C%20thus%20maintaining%20the%20efficiency%20of%20communication.%0A%0A%23%23%20EDCA%20Parameter%20Set%20Element%0A!%5BUntitled%20(3)%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FByQmZdKhp.png)%0AThis%20figure%20is%20a%20representation%20of%20the%20EDCA%20parameter%20settings%20for%20the%20QoS%20function%20in%20an%20802.11%20wireless%20network.%20In%20the%20802.11e%20standard%2C%20EDCA%20provides%20different%20priorities%20for%20different%20data%20flows%2C%20which%20are%20represented%20by%20different%20access%20categories%20(AC).%20This%20figure%20shows%20the%20structure%20of%20a%20QoS%20parameter%20element%20that%20defines%20the%20behavior%20of%20each%20AC.%20Key%20parts%20of%20the%20diagram%20include%3A%0A%0A1.%20**Element%20ID%20and%20Length**%3A%20Identifies%20the%20type%20and%20length%20of%20the%20information%20element.%0A2.%20**QoS%20Info**%3A%20Provides%20QoS-related%20information.%0A3.%20**AC%20parameter%20record**%3A%20For%20each%20AC%20category%20(AC_BE%2C%20AC_BK%2C%20AC_VI%2C%20AC_VO)%2C%20there%20is%20a%20parameter%20record%2C%20including%3A%0A%20%20%20%20%20-%20AIFSN%3A%20Arbitration%20Interframe%20Space%20Number%2C%20used%20to%20calculate%20AIFS.%0A%20%20%20%20%20-%20ACM%3A%20Admission%20Control%20Mandatory%2C%20indicating%20whether%20access%20control%20is%20necessary.%0A%20%20%20%20%20-%20ACI%3A%20Access%20Category%20Index%2C%20indicating%20the%20number%20of%20the%20AC.%0A%20%20%20%20%20-%20ECWmin%2FECWmax%3A%20Specify%20the%20minimum%2Fmaximum%20index%20for%20calculating%20Contention%20Window.%0A%20%20%20%20%20-%20TXOP%20Limit%3A%20The%20maximum%20transmission%20time%20allowed%20by%20this%20AC.%0A4.%20**CWmin%20and%20CWmax**%3A%20These%20are%20the%20actual%20minimum%20and%20maximum%20values%20of%20Contention%20Window%20calculated%20based%20on%20ECWmin%2FECWmax.%20CWmin%20and%20CWmax%20are%20important%20parameters%20used%20in%20the%20backoff%20algorithm%20to%20determine%20the%20number%20of%20random%20time%20slots%20that%20a%20STA%20must%20wait%20for%20before%20attempting%20to%20transmit.%0A5.%20**Bits%20and%20Bytes**%3A%20The%20representation%20of%20Bits%20and%20Octets%20helps%20understand%20the%20size%20of%20each%20field%20in%20the%20parameter%20record.","viewMode":"publish","unreadState":[],"isOwner":false,"isSignIn":false,"isLiked":false,"isBookmarked":false,"publishType":"view","commentCount":0,"isNotesRecommendationsEnabled":true,"recommendedNotes":[],"lastChangeUserInfo":{"name":"Benson214","path":"Benson214","avatarUrl":"https%3A%2F%2Fwww.gravatar.com%2Favatar%2F1028091d149795b65da388935e266f70%3Fs%3D96"}}`);
+  window.owner = "f13b4ef6-6709-435b-86e3-c779ec3549a1";
+  (function () {
+    const decodeStringProps = (props) => {
+      for (const key in props) {
+        if (typeof props[key] === 'string') {
+          props[key] = decodeURIComponent(props[key])
+        } else if (typeof props[key] === 'object') {
+          decodeStringProps(props[key])
+        }
+      }
+    }
+    decodeStringProps(window.publishProps)
+  })()
+</script>
+
+
+    <script src="https://tally.so/widgets/embed.js"></script>
+
+    
+</head>
+
+<body style="display:none;">
+    <div id="toasts-container" class="toasts-container z-[2000]"></div>
+    <div id="publish-page"># 802.11e
+![螢幕擷取畫面 2024-02-23 085742 (1)](https://hackmd.io/_uploads/SydcdzUh6.png)
+- **IEEE 802.1 Management**: This refers to network management and includes bridging and Virtual LANs (VLANs). The standards like 802.1d for bridging and 802.1q for VLAN are specified here.
+- **802.2 Logical link control (LLC)**: This part of the IEEE 802 standard defines the Logical Link Control, which is the top sublayer in the data link layer. LLC is used for addressing and control of the data link.
+- **802.3**: This refers to Ethernet, a wired networking standard. It includes both the Media Access Control (MAC) sublayer and the Physical Layer (PHY).
+- **802.5**: This is for Token Ring networks, also detailing the MAC and PHY layers
+- **802.11**: This is the standard for wireless networking, commonly known as Wi-Fi. It also has MAC and PHY sublayers, with various PHY types like FHSS, DSSS, OFDM, and HR/DSSS, which refer to different types of radio technologies used.
+- **802.11 Variants**:
+    - **802.11 FHSS PHY**: Frequency-Hopping Spread Spectrum Physical Layer.
+    - **802.11 DSSS PHY**: Direct-Sequence Spread Spectrum Physical Layer.
+    - **802.11a OFDM PHY**: Orthogonal Frequency-Division Multiplexing for 802.11a, a standard for wireless networking that operates in the 5 GHz band.
+    - **802.11b/g HR/DSSS PHY**: High Rate/Direct Sequence Spread Spectrum for 802.11b/g, standards for wireless networking that operate in the 2.4 GHz band.
+## QoS Requirement
+
+- Parameters of traffic stream
+    - Controlled transmission rate
+        - Peak rate &amp; Average rate
+    - Controlled Service Interval
+        - Minimum &amp; Maximum
+    - Burst Size on peak rate
+- Requirements
+    - Bounded Delay (for real-time &amp; smooth interaction)
+    - Bounded Jitter (for smooth playout)
+- Solution in device: Jitter Buffer
+- Solution in network: Prioritized Transmission
+
+## Two Kinds of QoS
+
+1. Parameterized QoS:
+    1. A strict QoS requirement expressed quantitatively in
+    terms of data rate, delay bound etc. (ex. BW of 10 Mbps,
+    delay bound of 10ms)
+2. Prioritized QoS:
+    1. Loose QoS requirement expressed in terms of relative
+    delivery priorit
+
+## Is 802.11 enough for QoS?
+
+1. DCF can not provide QoS trivially
+    1. DCF: &#34;Distributed Coordination Function&#34;, which is a basic media access control (MAC) protocol in the IEEE 802.11 wireless LAN standard. uses a CSMA/CA mechanism.
+2. PCF is not enough（Point Coordination Function）
+    1. PCF : An optional addition to DCF, designed to support networks containing latency-sensitive data transmission
+    2. Only 1 frame can be sent at each polling
+    3. Point Coordinator (PC) does not know the
+    QoS requirement of traffic
+    4. Can not guarantee the delay and jitter
+    bound
+
+## Brief of IEEE 802.11e
+
+- Defined at IEEE 802.11 Task Group E
+- Goal: Providing QoS
+    - Minimize Latency
+    - Maximize throughput
+    - Define traffic models for both Ad-hoc and
+    Infrastructure
+- Approach: Enhance the MAC (802.11)
+
+## Major Enhancements in 802.11e
+
+- Basic elements for QoS
+    - Traffic Differentiation
+    - Concept of Transmission Opportunity (TXOP)
+- New Contention-based channel access
+    - Enhanced Distributed Channel Access (EDCA) (Contention-based)
+
+- New Contention-free channel acces
+    - HCF Controlled Channel Access (HCCA) (Contention Free)
+
+- Other new mechanisms for higher throughput
+    - Block Acknowledgement (Block Ack)
+    - Direct Link Setup (DLS)
+    - Automatic Power-Save Delivery (APSD)
+        
+
+## Terms
+
+- QoS Facility
+    - The mechanisms for QoS defined in 802.11e
+- QAP
+    - Access Point supporting QoS facility
+- QSTA
+    - Station supporting QoS facility
+- QBSS
+- Hybrid Coorinator (HC)
+- Access Category (AC)
+- User Priority (UP)
+- Traffic Category (TC)
+- Traffic Specification (TSPEC)
+- Traffic Stream (TS)
+- Traffic Identifier (TID)
+
+# Traffic Differentiation
+
+## Classification of QoS Data
+
+- New frame subtype: QoS Data
+![Untitled](https://hackmd.io/_uploads/ByZQYf8n6.png)
+- Each MSDU of QoS Data is classified as one kind of traffic
+    - Identified by TID field in frame header
+        - EX:
+            Voice traffic: TID = 1
+            Video traffic: TID = 2
+            Data traffic: TID = 3
+            
+- Two types of traffic classification(Ensure critical data such as voice and video gets the network resources it needs.)
+    - By User Priority (UP)(for prioritized QoS)
+    - By Traffic Specification (TSPEC)(for parameterized QoS
+
+## User Priority
+
+- 8 User Priorities:
+    - Identical to IEEE 802.1D priority tags
+![Untitled (1)](https://hackmd.io/_uploads/rkRUYfL3T.png)
+- Priority Determination of MSDU
+    - Directly:
+        - provided at MAC SAP by upper-layer software
+    - Indirectly:
+        - defined in TSPEC’s
+
+
+## Access Category (AC)
+
+- Rules
+    - One UP(User Priority) belongs to one AC
+    - Each AC contains two UP
+    - Traffic of higher UP will be transmitted first in one AC
+- In EDCA, media access is based on the AC of MSDU
+- 4 AC’s are defined
+    - AC_BK (background)
+    - AC_BE (best-effort)
+    - AC_VI (Video)
+    - AC_VO (Voice)
+- In EDCA, the size of Contention-Window (CW) Inter-frame space (IFS) is dependent on AC
+
+## Traffic Specification
+- Traffic Specification (TSPEC)
+    - Characteristics of traffic streams created by negotiation between QSTA（Quality of Service Traffic Stream Aware） and HC ( Hybrid Coordinator）
+    - HC can schedule the polling輪巡 within CFP（Contention-Free Period） and the
+    data transmission of the TS accordingly
+    - At most 8 TSPEC can be registered
+    - Identified by TSID（Traffic Stream Identifier ) (0~7)
+- TSPEC Setup &amp; Delete
+    - Use Management Frame with new subtype Action
+        - ADDTS request &amp; ADDTS response: for TSPEC setup
+        - DELTS: for TSPEC delete
+
+![Untitled (2)](https://hackmd.io/_uploads/B1aiYfIn6.png)
+
+## MAC Frame Formats
+
+- MAC frame format (QoS Data):
+![Untitled (3)](https://hackmd.io/_uploads/Hk6htfU2a.png)
+* QoS Control Field:
+
+![Untitled (4)](https://hackmd.io/_uploads/SJx0KMU26.png)
+- In QoS control field
+    - TID: Traffic Identifier
+    - EOSP: End of Service Period
+        - Service period is ended after successful
+        transmission of this frame
+        - Used with APSD(Automatic Power-Save Delivery)
+    - QAP PS Buffer State
+![Untitled (5)](https://hackmd.io/_uploads/H1y15fL2a.png)
+- Distinguish MSDUs of different traffic types
+    - Range: 0-15
+![Untitled (6)](https://hackmd.io/_uploads/HygxqzUnT.png)
+
+## Action Frames: ADDTS request &amp; ADDTS response
+![Untitled (7)](https://hackmd.io/_uploads/HJVzcfLna.png)
+## TSPEC Element Format
+![Untitled (8)](https://hackmd.io/_uploads/B1G79zLhp.png)
+![Untitled (9)](https://hackmd.io/_uploads/BkK7qzL2p.png)
+## Traffic Classification (TCLAS)Element
+- For identifying the TS to which the incoming MSDUs belong
+![Untitled (10)](https://hackmd.io/_uploads/rkAN5zL3a.png)
+![Untitled (11)](https://hackmd.io/_uploads/H1NBcM82T.png)
+## Schedule Element
+- HC contains Schedule element in ADDTS response if incoming ADDTS request’s TS_INFO.Schedule = 1.
+- If TS_Info.Access_Policy includes EDCA, the schedule element indicate the polling schedule for this TS in HCF
+- TS_Info.APSD = 1, the schedule element indicate the wakeup schedule for transmission
+
+![Untitled (12)](https://hackmd.io/_uploads/ryOUcG8n6.png)
+# Hybrid Coordination Function(HCF)
+## HCF Brief
+
+- In 802.11, two access methods
+    - Distributed Coordination Function (DCF)
+    - Point Coordination Function (PCF)
+- In 802.11e, HCF access method is added,
+including
+    - Contention-Based channel access– EDCA
+        - Combined with DCF
+    - Controlled channel access – HCCA
+        - Similar to PCF but with enhancement
+
+## MAC Architecture
+![Untitled (14)](https://hackmd.io/_uploads/Skp7S7Uha.png)
+* This diagram shows how to choose different access methods based on different requirements and QoS parameters. As can be seen from the arrow on the left, for QoS services that require priority processing, PCF or HCF must be used. For services that do not require competition, that is, non-QoS services, you can choose not to use PCF, which is usually optional. The arrow on the right indicates that HCF is necessary for QoS services that require parameterization, especially the HCCA part.
+
+## EDCA
+
+- Difference from original DCF
+    - Contention between ACs (Not STAs)
+    - AC Contends for Transmission Opportunity(TXOP) in unit of 32 microseconds.
+    - New Inter-frame Space (IFS) for each AC:Arbitration Interframe Space (AIFS)
+## Reference implementation
+![Untitled](https://hackmd.io/_uploads/rkAdF6826.png)
+* EDCA reference implementation model:
+
+    - **MSDU, UP**: This represents the MAC Service Data Unit (MSDU) and User Priority (UP). MSDU is a data unit that is sent to the MAC sublayer to prepare for encapsulation, and the user priority is an attribute of the data packet that is used to determine the priority of its transmission.
+    - **Mapping to Access Category**: This means that data will be mapped to different access categories (Access Category, AC) based on user priority. In EDCA, there are four different access categories, which are used for data transmission with different priorities.
+    - **Transmit queues for ACs**: Each access class has its own transmission queue (AC). This means that based on the priority of the data, it will be placed in the corresponding queue waiting for transmission.
+    - **Per-queue EDCA functions with internal collision resolution**: Each queue has its own EDCA functions, which include algorithms for deciding when packets can start being transmitted. These features also include internal collision resolution mechanisms to handle collisions that occur when multiple packets attempt to use the same wireless channel at the same time.
+
+## IFS in 802.11 DCF:Contention between STAs
+![image](https://hackmd.io/_uploads/Bkcg_7UhT.png)
+This figure shows the concept of Interframe Space (IFS) under the Distributed Coordination Function (DCF) in the IEEE 802.11 protocol. In the 802.11 Wireless LAN (WLAN) standard, DCF is a part of the Media Access Control (MAC) protocol used to control access contention between stations (STAs). Elements here include:
+
+- **DIFS (DCF Interframe Space)**: This is the lowest IFS and is used for instant access to data transfer when the media is idle for a duration equal to or exceeding DIFS.
+- **PIFS (PCF Interframe Space)**: Used for access under the Point Coordination Function (PCF). It is shorter than DIFS and allows the point coordinator (PC) to access the medium faster in a distributed system.
+- **SIFS (Short Interframe Space)**: It is the shortest of all IFS and is used for fast transmission of acknowledgment (ACK) packets, clear send (CTS) packets and fragmented packets.
+- **Busy Medium**: Indicates that the medium is in use. (Channel status indication. If a station detects that the channel is busy, it means that there are other transmissions in progress at the current moment and must wait until the channel becomes free.)
+- **Defer Access**: If the medium is busy, access must be deferred.
+- **Contention Window**: A random delay that a site must wait before trying to access the medium. It randomizes access attempts to reduce the likelihood of collisions.
+- **Backoff Window**: is part of the Contention Window and is part of the backoff algorithm, in which each STA randomly selects a time slot before attempting to transmit and decrements the backoff counter after each idle time slot.
+- **Slot time**: is the smallest unit of time, used to define the time slot in the backoff window.
+- **Select Slot and Decrement Backoff as long as medium is idle**: When the medium is idle, the STA will select a slot and start counting down its backoff counter. If the medium remains idle until the backoff counter reaches zero, the STA can attempt to transmit.
+
+This process is to reduce collisions in the air
+## DCF Example
+![Untitled (15)](https://hackmd.io/_uploads/BJgq_mUha.png)
+(DCF also exists in 802.11e, but mainly as a fallback without QoS requirements.)
+## IFS in EDCF:Contention between ACs
+![Untitled (16)](https://hackmd.io/_uploads/BJJiu7Ln6.png)
+The concept of TXOP in mac layer
+
+The TXOP value may be specified in the configuration settings of the wireless access point (AP) or assigned by the network management system based on global policy.
+
+1. **SIFS (Short Interframe Space)**: The data frame is followed by a very short interval, used for operations with the highest priority, such as the receiver sending an acknowledgment frame (Ack).
+2. **Acknowledgement Frame (Ack)**: The receiver sends an acknowledgment after SIFS to confirm that it has successfully received the previous data frame.
+3. **DIFS (DCF Interframe Space)**: The standard time interval used in the Distributed Coordination Function (DCF) to start a new transmission attempt.
+4. **PIFS (PCF Interframe Space)**: The time interval in Point Coordination Function (PCF) mode, which is shorter than DIFS, allows the central controller to prioritize access to the media.
+5. **AIFS[AC_XX] and AIFS[AC_YY]**: These are the Arbitration Interframe Space in Enhanced Distributed Channel Access (EDCA), used for traffic of different access categories (AC). Each type of traffic (such as background, best effort, video and voice) has its own AIFS to ensure QoS requirements are met. AIFS[AC_XX] and AIFS[AC_YY] represent different AIFS time intervals for traffic of different priorities.
+6. **Contention Window**: This is a random wait time that determines how long a site should wait before attempting a transfer. It is designed to reduce the probability of collision. The size of the Contention Window is set based on each AC, not based on user priority.
+7. **Next TXOP (Transmission Opportunity)**: This is the next transmission opportunity, that is, the time period during which the station can send a series of data frames without re-competing for the media.
+
+## Arbitration Interframe Space(AIFS)
+
+- QSTA use AIFS to defer the contention window or transmission for each AC
+- AIF[AC] = AIFSN[AC] x aSlotTime slot time + aSIFTime
+     - AIFSN (Arbitration Interframe Space Number) for each AC is broadcast via beacon frame containing ‘EDCA Parameter Set’ element
+- (DIFS = 2 x aSlotTime + aSIFTime)
+     - **AIFS[AC]**: For a specific access class (AC), this is the total time to wait after the channel becomes idle before data can be transmitted. AIFS can be different for each AC, allowing high-priority traffic to access the media faster.
+     - **AIFSN[AC]**: This is the AC-specific Arbitration Interframe Space Number, which determines the length of the AIFS. For high-priority traffic, the value of AIFSN is smaller; for low-priority traffic, the value of AIFSN is larger.
+     - **aSlotTime**: This is the length of the time slot in the 802.11 network. It is the basic unit of time and is used to calculate backoff time and AIFS. The time slot is fixed and determined by the physical conditions of the network.
+     - **aSIFSTime**: This is the shortest Interframe Space, used to separate the transmission of management and control frames, such as acknowledgment frames (ACK) and clear-to-send frames (CTS). It allows for quick responses, thus maintaining the efficiency of communication.
+
+## EDCA Parameter Set Element
+![Untitled (3)](https://hackmd.io/_uploads/ByQmZdKhp.png)
+This figure is a representation of the EDCA parameter settings for the QoS function in an 802.11 wireless network. In the 802.11e standard, EDCA provides different priorities for different data flows, which are represented by different access categories (AC). This figure shows the structure of a QoS parameter element that defines the behavior of each AC. Key parts of the diagram include:
+
+1. **Element ID and Length**: Identifies the type and length of the information element.
+2. **QoS Info**: Provides QoS-related information.
+3. **AC parameter record**: For each AC category (AC_BE, AC_BK, AC_VI, AC_VO), there is a parameter record, including:
+     - AIFSN: Arbitration Interframe Space Number, used to calculate AIFS.
+     - ACM: Admission Control Mandatory, indicating whether access control is necessary.
+     - ACI: Access Category Index, indicating the number of the AC.
+     - ECWmin/ECWmax: Specify the minimum/maximum index for calculating Contention Window.
+     - TXOP Limit: The maximum transmission time allowed by this AC.
+4. **CWmin and CWmax**: These are the actual minimum and maximum values of Contention Window calculated based on ECWmin/ECWmax. CWmin and CWmax are important parameters used in the backoff algorithm to determine the number of random time slots that a STA must wait for before attempting to transmit.
+5. **Bits and Bytes**: The representation of Bits and Octets helps understand the size of each field in the parameter record.</div>
+    <!-- signin modal -->
+
+<div class="modal fade signin-modal" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="margin-top: 10px; right: 20px; position: absolute;"><span aria-hidden="true">&times;</span></button>
+            
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+<h3>Sign in</h3>
+
+<form data-toggle="validator" role="form" class="form-horizontal" method="post" enctype="application/x-www-form-urlencoded" id="signin-form">
+    <div class="hmd-dn"><input type="hidden" name="_csrf" value="XTw02NAW-0L8KXw10e_fqdChxjrh8-QDbMnQ"></div>
+    <div class="hmd-dn"><input type="hidden" name="create_team" value="false"></div>
+    <div class="hmd-dn"><input type="hidden" name="create_paid_team" value="false"></div>
+    
+    <div class="form-group  ">
+        <label for="email" class="control-label">Email</label>
+        <label for="inputEmail" class="control-label pull-right errors">
+            
+        </label>
+        <span class="help-block control-label with-errors pull-right" style="margin-top: 14px"></span>
+        <div class="input-block">
+            
+                <input type="email" class="form-control" name="email" placeholder="Your email" required autocomplete="email">
+            
+            <span class="error-sign"></span>
+        </div>
+    </div>
+    <div class="form-group ">
+        <label for="password" class="control-label">Password</label>
+        <label for="inputPassword" class="control-label pull-right errors">
+            
+        </label>
+        <span class="help-block control-label with-errors pull-right" style="margin-top: 14px"></span>
+        <div class="input-block">
+            <input type="password" class="form-control" name="password" placeholder="Your password" required autocomplete="current-password" maxlength="128">
+            <span class="error-sign"></span>
+            
+                <span class="control-label pull-right !text-normal !leading-normal !font-normal !mt-1.5"><a href="https://hackmd.io/settings/forgotPassword" style="text-decoration: underline;">Forgot password</a></span>
+            
+        </div>
+    </div>
+
+    <div style="text-align: center; padding-top: 15px; margin-bottom: 0px;">
+        <div
+            hidden
+            id="hmd-captcha"
+            data-provider=""
+            data-captcha-data=""
+            class="flex justify-center"
+        ></div>
+
+        
+            <input type="submit" class="neo-btn neo-btn-primary !justify-center !py-3.5 !mx-auto w-[180px] text-[18px]" formaction="https://hackmd.io/login" value="Sign in">
+        
+
+        
+    </div>
+</form>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        <p class="separator">or</p>
+    
+
+    
+        <p>By clicking below, you agree to our <a href="https://hackmd.io/s/terms" target="_blank">terms of service</a>.</p>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+<script id="gsi-client" src="https://accounts.google.com/gsi/client" async defer nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f"></script>
+<script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+    function handleCredentialResponse(response) {
+        const form = document.getElementById('sign-in-with-google-form')
+        form.children.credential.value = response.credential
+        form.children.method.value = location.href.toLowerCase() === 'https://hackmd.io/settings#general' ? 'merge' : 'login'
+        form.submit()
+    }
+    var GSI_READY = new Promise(function (resolve) {
+        function initialize () {
+            google.accounts.id.initialize({
+                client_id: '911617723593-drikdibvvn63slfd6kbqigo8ql1no55s.apps.googleusercontent.com',
+                callback: handleCredentialResponse
+            })
+            const loginPath = '/login'
+            const joinPath = '/join'
+            const renderButton = function () {
+                google.accounts.id.renderButton(
+                    document.getElementById('sign-in-with-google-button'),
+                    { type: 'standard', width: 250 }
+                )
+            }
+            if (location.pathname.toLowerCase() === loginPath || location.pathname.toLowerCase() === joinPath) {
+                renderButton()
+            } else {
+                $('.signin-modal').one('shown.bs.modal', function () {
+                    renderButton()
+                })
+            }
+            resolve()
+        }
+
+        window.addEventListener('load', function () { initialize() })
+    })
+</script>
+<form class="hidden" id="sign-in-with-google-form" action="/auth/google" method="post">
+    <input type="hidden" name="credential">
+    <input type="hidden" name="method">
+    <input type="hidden" name="_csrf" value="XTw02NAW-0L8KXw10e_fqdChxjrh8-QDbMnQ">
+</form>
+
+
+<div class="oauth-sign-container">
+    
+    <div id="sign-in-with-google-button"></div>
+    
+    
+    <a href="https://hackmd.io/auth/facebook" class="btn btn-lg btn-block btn-social btn-facebook">
+        <i class="fa fa-facebook"></i> Sign in via Facebook
+    </a>
+    
+    
+    <a href="https://hackmd.io/auth/twitter" class="btn btn-lg btn-block btn-social btn-twitter">
+        <i class="fa fa-twitter"></i> Sign in via Twitter
+    </a>
+    
+    
+    <a href="https://hackmd.io/auth/github" class="btn btn-lg btn-block btn-social btn-github">
+        <i class="fa fa-github"></i> Sign in via GitHub
+    </a>
+    
+    
+    <a href="https://hackmd.io/auth/dropbox" class="btn btn-lg btn-block btn-social btn-dropbox">
+        <i class="fa fa-dropbox"></i> Sign in via Dropbox
+    </a>
+    
+    
+    
+      <a href="#" class="btn btn-block btn-social btn-web3 bg-gray-800 hocus:bg-[#2b2b2b] text-white hocus:text-white">
+          <img src="https://hackmd.io/images/wallet.svg" style="max-height: 20px; margin-top: 8px; margin-left: 6px; border: none;">
+          <span class="sign-in-wallet-text">
+              Sign in with Wallet
+          </span>
+
+          <div class="inline-flex items-center justify-between w-full hidden web3-wallet-info">
+              <span>
+                   Wallet
+                   (
+                    <span class="web3-wallet-address"></span>
+                   )
+              </span>
+
+              <i class="fa fa-arrow-right" aria-hidden="true"></i>
+          </div>
+      </a>
+
+      <small class="web3-wallet-info hidden text-left hocus:text-white underline hocus:underline block pt-2 ui-disconnect-connected-wallets text-gray-600 cursor-pointer">
+          Connect another wallet
+      </small>
+    
+</div>
+
+
+
+
+    <div >
+        <p>New to HackMD? <a href="https://hackmd.io/join" class="plausible-event-name=LoginModalSignUp">Sign up</a></p>
+    </div>
+
+
+
+
+        </div>
+    </div>
+</div>
+
+    
+    <script src="https://www.googletagmanager.com/gtag/js?id=G-NGVZMM6DR6"></script>
+    <script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        let userid = (document.cookie.match('(^|; )userid=([^;]*)')||0)[2];
+        gtag('config', 'G-NGVZMM6DR6', {'user_id': userid});
+        
+    </script>
+
+
+    
+<script src="https://browser.sentry-cdn.com/5.15.5/bundle.min.js" crossorigin="anonymous"></script>
+<script nonce="1d0534f6-d3a6-400e-a301-86d4a9079f4f">
+  Sentry.init({ dsn: 'https://73410f1915d84abc8b2dd1f1aabd1c82@sentry.hackmd.dev/4', environment: 'production', integrations: function (intrus) { return intrus.filter(function (itr) { return itr.name !== 'TryCatch' }) } });
+  const sentryUserId = document.cookie
+    .split('; ')
+    .map(cookie => cookie.split('='))
+    .reduce((acc, [k, v]) => k === 'userid' ? v : acc, '');
+  Sentry.setUser(sentryUserId ? { id: sentryUserId } : null);
+</script>
+
+
+    
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KLW9Z3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+
+    <script src="https://hackmd.io/api/i18n.js"></script>
+     <script src="https://assets.hackmd.io/build/font-vendor.da2ff914b6696699c15e.js" defer="defer"></script><script src="https://assets.hackmd.io/build/common-vendor.d6e5c1bdd49586874403.js" defer="defer"></script><script src="https://assets.hackmd.io/build/pretty-vendor.0f9283186e37f165578f.js" defer="defer"></script><script src="https://assets.hackmd.io/build/pretty-common.080f16fad399ce514069.js" defer="defer"></script><script src="https://assets.hackmd.io/build/pretty.c5d8f33947b7408c9e9d.js" defer="defer"></script>
+
+    
+
+</body>
+</html>

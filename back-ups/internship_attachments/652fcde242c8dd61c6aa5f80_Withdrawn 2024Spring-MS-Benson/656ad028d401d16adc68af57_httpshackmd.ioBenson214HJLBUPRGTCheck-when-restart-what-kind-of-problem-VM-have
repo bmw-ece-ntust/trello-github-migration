@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="dev" data-themeable="true">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="csrf-token" content="jIp1ZIvt-xLeIGh_78ZkgicWM29KTfc7jro8">
+    
+    
+    <meta name="description" content="( when the system or VM is restarted, The AIMLFW is not restoring to original state before restart.)">
+    
+    <title>AIML_Debug - HackMD</title>
+    <link rel="icon" type="image/png" href="https://hackmd.io/favicon.png">
+	<link rel="apple-touch-icon" href="https://hackmd.io/apple-touch-icon.png">
+	<!--  meta value for server side given sign in boolean -->
+    <meta name="signin" content="false">
+
+    
+<script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+  window.domain = 'hackmd.io'
+  window.urlpath = ''
+  window.debug = false || window.localStorage.getItem('HMD_DEBUG_FLAG') === 'true'
+  window.version = '1.3.0'
+  window.brand = 'HackMD'
+
+  
+  window.NOTE_ID = 'Cz0Xr6uERiGF4NGyySAKaA'
+  
+
+  window.GOOGLE_DRIVE_API_KEY = 'AIzaSyAHmcP5gL_64ZafuAYOvJruFAIaYgHQaY4'
+  window.GOOGLE_DRIVE_CLIENT_ID = '65857506266-76uhhee8se8dgs1i0q8fhtj1prg0ar27.apps.googleusercontent.com'
+  window.DROPBOX_APP_KEY = 'rdoizrlnkuha23r'
+  
+  window.PLANTUML_SERVER = 'https://ptuml.hackmd.io'
+
+  window.ASSET_URL = 'https://assets.hackmd.io'
+
+  window.USER_CAN_CREATE_TEAM = true
+  window.USER_CAN_DELETE_ACCOUNT = true
+  window.USER_DELETE_ACCOUNT_VIA_EMAIL = true
+  window.PAYMENT_ENABLED = true
+  window.PAYMENT_PROMOTION_BANNER_ENABLED = false
+  window.GITHUB_SYNC_ENABLED = true
+  window.GITLAB_SYNC_ENABLED = false
+  window.GITLAB_SYNC_BASE_URL = ''
+  window.VCS_SYNC_MODE = 'github'
+  window.VCS_PROVIDER_NAME = 'GitHub'
+  window.FREE_TEAM_NUM = 20
+  window.FREE_TEAM_MEMBER_NUM = 3
+  window.FREE_PUBLIC_TEAM_NUM = 10
+  window.NEO_OVERVIEW_UI = true
+  window.NEO_PROFILE_UI = true
+
+  
+      window.FOLDER_ENABLE = true
+  
+
+  
+  window.EE_SITE_ENABLE = false
+  window.EE_SITE_NAME = 'false'
+  window.EE_SITE_LINK = 'false'
+  window.EESITE_INFO = false
+  window.ENTERPRISE_DISCOVERY_ENABLE = false
+  window.ENTERPRISE_DISCOVERY_TEAM = true
+  window.ENTERPRISE_DISCOVERY_NOTE = true
+  window.ENTERPRISE_DISCOVERY_VIEW_PERMISSION = 'guest'
+  
+  window.ALLOW_ANONYMOUS = true
+  window.ALLOW_ANONYMOUS_EDIT = false
+  window.ALLOW_DOWNLOAD_PDF = true
+  window.PUBLIC_OVERVIEW = false
+  window.INTERNAL_PUBLIC_OVERVIEW = false
+  window.FULL_TEXT_SEARCH_ENABLE = false
+  window.ALGOLIA_SEARCH_ENABLE = true
+  window.MARKETING_EMAIL_ENABLE = true
+  window.EMAIL_INVITATION_ENABLE = true
+  window.OFFLINE_ACCESS = true
+  
+  
+  
+    window.WALLET_CONNECT_PROJECT_ID = '91d6fa182b725b5895a17a170a5878c1'
+  
+  window.API_MANAGEMENT_UI_ENABLE = true
+  window.FEEDBACK_UI_ENABLE = true
+  window.PUBLISH_ENABLE = true
+
+  
+
+  
+  window.SHOW_HOT_NOTES = false
+  
+
+  
+  window.HOT_NOTES_TIME_TYPE = 'week'
+  
+
+  
+  window.SHOW_OVERVIEW = false
+  
+
+  
+  window.MENTIONS = {}
+  
+
+  
+  window.MENTION_ANCHORS = []
+  
+
+  
+  window.COMMENT_ANCHORS = []
+  
+
+  
+  window.IS_OWNER = false
+  
+
+  
+  window.IS_TEAM_ADMIN = false
+  
+
+  
+  window.IS_TEAM_MEMBER = false
+  
+
+  
+  window.IS_INVITEE_ADMIN = false
+  
+
+  
+  window.USER_PROFILE = '%7B%22name%22%3A%22Guest%20Arnold%22%7D'
+  
+
+  
+  window.VERSION_TIME = '1702835116954'
+  
+
+  
+  window.canEdit = false
+  
+
+  
+  window.canWriteComment = false
+  
+
+  
+  window.canHideComment = false
+  
+
+  window.TRASH_NOTE_DELETE_AFTER_FREE = 3
+  window.TRASH_NOTE_DELETE_AFTER_PAID = 30
+
+  
+    window.ENABLED_PREVIEW_FEATURE = {}
+  
+
+  
+    window.ACTIVE_PREVIEW_FEATURE = ["beta-slide-preview","beta-note-insights"]
+  
+
+  
+    window.IS_OWNER_UPGRADED = false
+  
+
+  
+    window.IMGUR_FALLBACK_CDN = 'https://imgur-backup.hackmd.io'
+  
+
+  
+    window.CLOUD_META_UI = true
+  
+  
+    window.CLOUD_META_API = true
+  
+  
+    window.CLOUD_META_MIGRATION = false
+  
+  
+    window.YAML_METADATA_ENABLED = false
+  
+
+  
+    window.NOTE_CAPACITY_LIMIT = 50
+  
+
+  
+    window.DOCUMENT_MAX_LENGTH = 100000
+  
+
+  
+    window.SOCIAL_NETWORK_FEATURES_ENABLED = true
+  
+
+  
+    window.PUBLISHMENT_MODERATION_ENABLED = true
+  
+
+  
+    window.COMMENT_ENABLED = true
+  
+
+  
+    window.COMMENT_PERMISSION = "signed_in_users"
+  
+
+  window.SUGGEST_EDIT_ENABLED = true
+  
+    window.SUGGEST_EDIT_ENABLED = true
+  
+
+  
+    window.SUGGEST_EDIT_PERMISSION = "signed_in_users"
+  
+  
+    window.canWriteSuggestEdit = false
+  
+
+  window.CITATION_ENABLED = true
+
+  window.NOTE_FROM_COMMENT_ENABLED = true
+
+  
+    window.NOTE_FEATURES = {"emoji-reply":"signed_in_users","citation":"disabled"}
+  
+
+  
+    window.REALTIME_CLIENT_WITH_CREDENTIALS = false
+  
+
+  
+    window.DEBUG_DISCONNECT_SOCKET_WHEN_OFFLINE = false
+  
+
+  
+
+  
+    window.PREFERRED_UI_THEME = "dark"
+  
+
+  
+
+  
+    window.CUSTOM_STYLE_ENABLED = "true"
+  
+
+  
+    window.USE_NEW_LOGO = true
+  
+
+  
+    window.ITERABLE_ENABLED = true
+  
+  
+    window.ITERABLE_API_KEY = "c2c36a44c2614fb19aa3b46d660bbce2"
+  
+
+  
+    window.CUSTOMERIO_ENABLED = false
+  
+  
+    window.CUSTOMERIO_WRITE_KEY = ""
+  
+  
+    window.CUSTOMERIO_SITE_ID = ""
+  
+
+  
+    window.TEXT_SELECTION_CHANGED = false
+  
+
+  
+    window.CAN_VIEW_HISTORY_AT_REVISION = false
+  
+
+  
+    window.GUIDED_COMMENT_ENABLED = true
+  
+
+  
+    window.ENCODED_SESSION_ID = "JOFEdt0XbSDHiVQDK1gTAN9S8QYOPT7CWD/5ZZmQ0Ps="
+  
+
+  
+    window.FOLDER_TRANSPORTATION = {"version":"v2","strategy":"canary-by-workspace-id","canaryThreshold":"F","rejectUnsupportedSchema":false}
+  
+
+  
+    window.COMMUNITY_ENABLED = false
+  
+
+  
+    window.NOTE_INSIGHTS_DEBUG_API_ENABLED = false
+  
+</script>
+
+
+    
+<!-- Google Tag Manager -->
+<script nonce="038a634c-5240-4088-9f26-b9e65bce7724">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-KLW9Z3');</script>
+<!-- End Google Tag Manager -->
+
+
+    
+
+
+
+
+
+
+    <meta property="fb:app_id" content="1436904003272070">
+
+
+
+    <meta name="robots" content="noindex, nofollow">
+
+
+
+    <meta name="twitter:image:src" content="https://hackmd.io/images/media/HackMD-neo-og.jpg">
+    <meta name="twitter:image:alt" content="AIML_Debug - HackMD">
+
+
+<meta name="twitter:site" content="@hackmdio" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="AIML_Debug - HackMD" />
+
+
+    <meta name="twitter:description" content="( when the system or VM is restarted, The AIMLFW is not restoring to original state before restart.)" />
+
+
+
+    <meta property="og:image" content="https://hackmd.io/images/media/HackMD-neo-og.jpg">
+    <meta property="og:image:alt" content="AIML_Debug - HackMD">
+
+
+<meta property="og:site_name" content="HackMD" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AIML_Debug - HackMD" />
+
+
+    <meta property="og:description" content="( when the system or VM is restarted, The AIMLFW is not restoring to original state before restart.)" />
+
+
+
+
+<!-- article meta -->
+
+
+
+
+
+<!-- profile meta -->
+
+
+
+     <link href="https://assets.hackmd.io/build/font-vendor.ea8218d7d4f468b2c430.css" rel="stylesheet"><link href="https://assets.hackmd.io/build/common-vendor.fd34b1d1ad1390fa8864.css" rel="stylesheet"><link href="https://assets.hackmd.io/build/pretty-vendor.8a8442e30c89d342d615.css" rel="stylesheet"><link href="https://assets.hackmd.io/build/pretty.24c30140c371c76b56d3.css" rel="stylesheet">
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+<!--[if lt IE 9]>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js" integrity="sha256-3Jy/GbSLrg0o9y5Z5n1uw0qxZECH7C6OQpVBgNFYa0g=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/respond.js/1.4.2/respond.min.js" integrity="sha256-g6iAfvZp+nDQ2TdTR/VVKJf3bGro4ub5fvWSWVRi2NE=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.5.9/es5-shim.min.js" integrity="sha256-8E4Is26QH0bD52WoQpcB+R/tcWQtpzlCojrybUd7Mxo=" crossorigin="anonymous"></script>
+<![endif]-->
+
+    
+
+
+    <script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+  window.__shouldIgnoreTracker = function() {
+    const isDebug = window.debug === true
+    const isLocal = /^localhost$|^127(\.[0-9]+){0,2}\.[0-9]+$|^\[::1?\]$|^local\.localhost$/.test(location.hostname) || location.protocol === 'file:'
+    const isAutomation = Boolean(window._phantom || window.__nightmare || window.navigator.webdriver || window.Cypress)
+    return isDebug || isLocal || isAutomation
+  }
+</script>
+
+<!-- plausible -->
+<script defer data-domain="hackmd.io" src="https://tracks.hackmd.io/js/script.js"></script>
+<script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+  window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments); }
+  const keyboardWhiteList = ['a', 'span', 'button']
+
+  function getTaggedEventAttributes (e) {
+    const eventAttrs = { name: null, props: {} }
+    if (!e || !e.classList) return eventAttrs
+    const psEvent = /plausible-event-(.+)(=|--)(.+)/
+    for (const className of [...e.classList]) {
+      const [, key, , val] = className.match(psEvent) || []
+      if (!key || !val) continue
+      const value = val.replace(/\+/g, ' ')
+      switch (key.toLowerCase()) {
+        case 'name':
+          eventAttrs.name = value
+          break
+        default:
+          eventAttrs.props[key] = value
+          break
+      }
+    }
+    return eventAttrs
+  }
+
+  function shouldIgnore () {
+    return window.__shouldIgnoreTracker() || window.localStorage.getItem('plausible_ignore') === 'true'
+  }
+
+  function handler (e) {
+    if (!window.plausible) return
+    if (!e.target || !('className' in e.target)) return
+    const ele = e.target
+
+    const eventAttrs = getTaggedEventAttributes(ele)
+    if (!eventAttrs.name) return
+    if (ele?.href) eventAttrs.props.url = ele.href
+
+    if (shouldIgnore()) {
+      if (window.debug) logDebugEventMsg(eventAttrs)
+      return
+    }
+    window.plausible(eventAttrs.name, { props: eventAttrs.props })
+  }
+
+  function logDebugEventMsg (eventAttrs) {
+    console.warn(
+      `Ignoring Event: "${eventAttrs.name}"`,
+      eventAttrs,
+    )
+  }
+
+  function keydownHandler (e) {
+    if (e.key !== 'Enter') return
+    if (e.target.nodeName.toLowerCase() === 'input') {
+      switch (e.target.type.toLowerCase()) {
+        case 'submit':
+        case 'button':
+        case 'reset':
+        case 'checkbox':
+        case 'radio':
+        case 'file':
+        case 'image':
+        case 'color':
+          break
+        default:
+          return
+      }
+    } else if (!keyboardWhiteList.includes(e.target.nodeName.toLowerCase())) {
+      return
+    }
+    handler(e)
+  }
+
+  document.addEventListener('mousedown', handler)
+  document.addEventListener('keydown', keydownHandler)
+</script>
+
+    
+<script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+  window.publishProps = JSON.parse(`{"isOwnerAnonymous":false,"isOwnedByTeam":false,"ownerInfo":{"name":"Benson214","path":"Benson214","avatarUrl":"https%3A%2F%2Fwww.gravatar.com%2Favatar%2F1028091d149795b65da388935e266f70%3Fs%3D96","description":null},"isPublished":false,"createTime":1698752061859,"updateTime":1702835116954,"vcsSyncMode":"github","vcsProviderName":"GitHub","canEdit":false,"hardBreaks":true,"onlyOwnerCanEdit":true,"isCommentEnabled":true,"likedCount":0,"isNotificationEnabled":true,"notificationType":"never","hasEmail":false,"canWriteComment":false,"viewCount":249,"markdown":"%0A%0A%23%20AIML%20Debug%0A%23%23%201.%20FIX%20AIML%20potential%20problem%20%0A(%20when%20the%20system%20or%20VM%20is%20restarted%2C%20The%20AIMLFW%20is%20not%20restoring%20to%20original%20state%20before%20restart.)%0A%0A%0A%23%23%23%20Check%20when%20restart%20what%20kind%20of%20problem%20VM%20have%0A!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FrkT8DDRzT.png)%0A%0A%0A%23%23%23%20Research%20the%20problems%20meaning%0A%E6%9F%A5%E7%9C%8B%E7%89%B9%E5%AE%9A%20Namespace%20%E4%B8%AD%E7%9A%84%20Pod%20%E7%9A%84%E6%97%A5%E5%BF%97%EF%BC%8C%E4%BD%BF%E7%94%A8%E4%BB%A5%E4%B8%8B%E6%8C%87%E4%BB%A4%EF%BC%9A%0A%60%60%60python%3D1%0A%20%20kubectl%20logs%20-n%20kubeflow%20%3Cpod_name%3E%0A%60%60%60%0APod%3A%20ml-pipeline%0A!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FHy0dhv0G6.png)%0A%3A%3A%3Awarning%0A%3Awarning%3A%20Faild%20to%20check%20if%20Minio%20bucket%20exists%0A%3A%3A%3A%0APod%3A%20ml-pipeline-persistence%0A!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FBy0f27y7a.jpg)%0A%3A%3A%3Awarning%0A%3Awarning%3A%20Waiting%20for%20ml%20pipeline%20API%20server%20failed%20after%20all%20atempts%E3%80%82%0A%3A%3A%3A%0A%0A%0A%0A%0A%0A%0A%23%23%23%20Examine%20the%20pipeline%20persistence%20%0A%20%0A*%20%20Error%20%3A%20%3D%3DWaiting%20for%20ml%20pipeline%20API%20server%20failed%20after%20all%20atempts%E3%80%82%3D%3D%0A*%20%20The%20error%20say%20persistence%20agent%20is%20unable%20to%20connect%20to%20the%20ML%20Pipeline%20API%20server.%0A*%20%20!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FSyyWJi1X6.png)%0A%20%20%20%20%20%20And%20the%20API%20server%20is%20stop%20working%0A*%20%20So%20we%20verify%20that%20the%20ml-pipeline-persistence%20problem%20is%20cause%20by%20ml-pipeline%0A%20%0A%0A%23%23%23%20Examine%20the%20pipeline%0A*%20%20Error%20%3A%20%3D%3DFaild%20to%20check%20if%20Minio%20bucket%20exists%E3%80%82%3D%3D%0A*%20%20Describe%20the%20pod%0A%60%60%60python%3D9%0A%20%20kubectl%20describe%20pod%20%3Cpod-name%3E%20-n%20my-namespace%0A%60%60%60%0A*%20%20Result%0A%60%60%60python%3D9%0A%20%20ml-pipeline-api-server%3A%0A%20%20%20%20Container%20ID%3A%20%20%20docker%3A%2F%2Fdd350f629ca8d2a6d67d5b3581f9b0cc1d8ec8b8e6fba48f06fe07abb40a825e%0A%20%20%20%20Image%3A%20%20%20%20%20%20%20%20%20%20api_server_local%3Alatest%0A%20%20%20%20Image%20ID%3A%20%20%20%20%20%20%20docker%3A%2F%2Fsha256%3A64d680a05faae32d0e90037f9ae213b312c6984fb835ebaeb561a597f470f529%0A%20%20%20%20Ports%3A%20%20%20%20%20%20%20%20%20%208888%2FTCP%2C%208887%2FTCP%0A%20%20%20%20Host%20Ports%3A%20%20%20%20%200%2FTCP%2C%200%2FTCP%0A%20%20%20%20State%3A%20%20%20%20%20%20%20%20%20%20Waiting%0A%20%20%20%20%20%20Reason%3A%20%20%20%20%20%20%20CrashLoopBackOff%0A%20%20%20%20Last%20State%3A%20%20%20%20%20Terminated%0A%20%20%20%20%20%20Reason%3A%20%20%20%20%20%20%20Error%0A%20%20%20%20%20%20Exit%20Code%3A%20%20%20%20255%0A%20%20%20%20%20%20Started%3A%20%20%20%20%20%20Sun%2C%2005%20Nov%202023%2021%3A42%3A28%20%2B0800%0A%20%20%20%20%20%20Finished%3A%20%20%20%20%20Sun%2C%2005%20Nov%202023%2021%3A42%3A29%20%2B0800%0A%20%20%20%20Ready%3A%20%20%20%20%20%20%20%20%20%20False%0A%20%20%20%20Restart%20Count%3A%20%20231%0A%60%60%60%0A*%20The%20%60ml-pipeline-api-server%60%20container%20in%20the%20%60ml-pipeline-5d6bf9c74-d2x6l%60%20pod%20is%20repeatedly%20crashing%20and%20entering%20a%20%60CrashLoopBackOff%60%20state%20due%20to%20failed%20liveness%20and%20readiness%20probes%2C%20indicated%20by%20frequent%20restart%20attempts%20and%20termination%20with%20exit%20code%20255.%0A%0A*%20Check%20container%20logs%0A%60%60%60python%3D9%0A%20%20kubectl%20logs%20ml-pipeline-5d6bf9c74-d2x6l%20-n%20kubeflow%20-c%20ml-pipeline-api-server%20--previous%0A%60%60%60%0A*%20Result%0A!%5B1.png%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FH1yvmmBXT.png)%0A*%20The%20API%20server%20failed%20to%20check%20if%20a%20Minio%20bucket%20exists%20because%20it%20couldn't%20connect%20to%20the%20Minio%20server%20at%20the%20leofs%20pod.%0A%0A%0A%20%20%0A*%20Find%20out%20which%20pod%20have%20minio%20service%0A%0A%23%23%23%20Wrong%20hypothesis%0A*%20%20The%20pod%E2%80%99s%20yaml%20file%20have%20nothing%20(%20no%20matter%20restart%20or%20not%20)%0A%20%20!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FrkQcm0Z7T.png)%0A*%20The%20YAML%20file%20is%20empty%2C%20which%20indicates%20that%20the%20configuration%20for%20this%20pod%20comes%20from%20an%20external%20source%2C%20and%20is%20dynamically%20generated.%20This%20leads%20to%20the%20inability%20to%20retrieve%20the%20configuration%20file%20upon%20restarting%2C%20and%20consequently%2C%20the%20inability%20to%20launch%20it%20locally.%0A%0A*%20The%20hypothesis%20is%20wrong%20because%20although%20the%20ml-pipeline.yaml%20is%20hypothesis%2C%20but%20in%20the%20terminal%20still%20can%20get%20the%20pod%E2%80%99s%20yaml%0A%23%23%23%20Find%20the%20error%20again%0APod%3A%20ml-pipeline%0A!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FHy0dhv0G6.png)%0A%3A%3A%3Awarning%0A%3Awarning%3A%20The%20error%20pod%20is%20from%20leofs%20setting%0A%3A%3A%3A%0A%0A%0A%23%23%23%20Design%20solution%0A*%20Use%20this%20command%20to%20reinstall%20the%20leof%20pod.%0A%60%60%60python%3D%0Acd%20aimlfw-dep%2Ftools%2Fleofs%2Fbin%0A.%2Finstall_leofs.sh%0A%60%60%60%0A*%20After%20you%20restart%2C%20use%20this%20command%20to%20delete%20ml-pipeline%20pod.%0A%60%60%60python%3D%0Akubectl%20delete%20pod%20%3Cyour%20pod%20name%3E%20-n%20kubeflow%20%0A%60%60%60%0A%0A%0A%0A%0A%3A%3A%3Asuccess%0A%3Abulb%3A%20**Relation%20between%20pod%20and%20server**%0A%0APod%EF%BC%9APod%20%E6%98%AF%20Kubernetes%20%E4%B8%AD%E6%9C%80%E5%B0%8F%E7%9A%84%E5%8F%AF%E9%83%A8%E7%BD%B2%E5%96%AE%E5%85%83%EF%BC%8C%E5%AE%83%E5%8F%AF%E4%BB%A5%E5%8C%85%E5%90%AB%E4%B8%80%E5%80%8B%E6%88%96%E5%A4%9A%E5%80%8B%E5%AE%B9%E5%99%A8%E3%80%82%20Pod%20%E9%80%9A%E5%B8%B8%E9%81%8B%E8%A1%8C%E4%B8%80%E5%80%8B%E6%87%89%E7%94%A8%E7%A8%8B%E5%BC%8F%E6%88%96%E4%B8%80%E7%B5%84%E5%8D%94%E4%BD%9C%E6%87%89%E7%94%A8%E7%A8%8B%E5%BA%8F%EF%BC%8C%E5%AE%83%E5%80%91%E5%9C%A8%E5%90%8C%E4%B8%80%E5%80%8B%E7%B6%B2%E8%B7%AF%E5%91%BD%E5%90%8D%E7%A9%BA%E9%96%93%E5%85%A7%EF%BC%8C%E5%8F%AF%E4%BB%A5%E7%9B%B4%E6%8E%A5%E9%80%8F%E9%81%8E%20localhost%20%E7%9B%B8%E4%BA%92%E9%80%9A%E8%A8%8A%E3%80%82%20Pod%20%E5%8F%AF%E4%BB%A5%E8%87%A8%E6%99%82%E5%89%B5%E5%BB%BA%E5%92%8C%E9%8A%B7%E6%AF%80%EF%BC%8C%E5%85%B7%E6%9C%89%E7%9F%AD%E6%9A%AB%E7%9A%84%E7%94%9F%E5%91%BD%E9%80%B1%E6%9C%9F%E3%80%82%0A%0AService%EF%BC%9AService%20%E6%98%AF%20Kubernetes%20%E4%B8%AD%E7%9A%84%E6%8A%BD%E8%B1%A1%E5%B1%A4%EF%BC%8C%E7%94%A8%E6%96%BC%E6%8F%90%E4%BE%9B%E5%B0%8D%20Pod%20%E9%9B%86%E5%90%88%E7%9A%84%E7%B6%B2%E8%B7%AF%E5%AD%98%E5%8F%96%E3%80%82%E5%AE%83%E7%82%BA%E4%B8%80%E7%B5%84%20Pod%20%E6%8C%87%E6%B4%BE%E4%BA%86%E4%B8%80%E5%80%8B%E7%A9%A9%E5%AE%9A%E7%9A%84%E8%99%9B%E6%93%AC%20IP%20%E4%BD%8D%E5%9D%80%E5%92%8C%E4%B8%80%E5%80%8B%20DNS%20%E5%90%8D%E7%A8%B1%EF%BC%8C%E9%80%99%E6%A8%A3%E5%85%B6%E4%BB%96%E6%9C%8D%E5%8B%99%E6%88%96%E5%A4%96%E9%83%A8%E7%94%A8%E6%88%B6%E7%AB%AF%E5%B0%B1%E5%8F%AF%E4%BB%A5%E4%BD%BF%E7%94%A8%E9%80%99%E4%BA%9B%E8%B3%87%E8%A8%8A%E4%BE%86%E5%AD%98%E5%8F%96%E9%80%99%E7%B5%84%20Pod%E3%80%82%20Service%20%E5%88%86%E7%82%BA%E4%B8%8D%E5%90%8C%E9%A1%9E%E5%9E%8B%EF%BC%8C%E5%8C%85%E6%8B%AC%20ClusterIP%E3%80%81NodePort%20%E5%92%8C%20LoadBalancer%EF%BC%8C%E6%A0%B9%E6%93%9A%E4%B8%8D%E5%90%8C%E7%9A%84%E4%BD%BF%E7%94%A8%E6%83%85%E5%A2%83%E9%81%B8%E6%93%87%E4%B8%8D%E5%90%8C%E7%9A%84%E9%A1%9E%E5%9E%8B%E3%80%82%0A%0A%E7%B8%BD%E8%80%8C%E8%A8%80%E4%B9%8B%EF%BC%8CService%20%E5%85%85%E7%95%B6%E4%BA%86%20Pod%20%E9%9B%86%E5%90%88%E7%9A%84%E7%B6%B2%E8%B7%AF%E4%BB%A3%E7%90%86%EF%BC%8C%E5%AE%83%E5%80%91%E5%B0%87%E6%B5%81%E9%87%8F%E5%BE%9E%E5%A4%96%E9%83%A8%E8%B7%AF%E7%94%B1%E5%88%B0%E6%AD%A3%E7%A2%BA%E7%9A%84%20Pod%EF%BC%8C%E5%AF%A6%E7%8F%BE%E4%BA%86%E7%B6%B2%E8%B7%AF%E7%9A%84%E8%B2%A0%E8%BC%89%E5%B9%B3%E8%A1%A1%E5%92%8C%E6%9C%8D%E5%8B%99%E3%80%82%0A%3A%3A%3A%0A%0A%3A%3A%3Asuccess%0A%0A%3Abulb%3A%20**What%20is%20pipeline**%0A%0A*%20Kubeflow%20Pipelines%20is%20a%20platform%20for%20building%20and%20deploying%20portable%2C%20scalable%20machine%20learning%20(ML)%20workflows%20using%20Docker%20containers.%0A*%20The%20isolation%20provided%20by%20containers%20allows%20machine%20learning%20stages%20to%20be%20portable%20and%20reproducible.%0A*%20Kubeflow%20Pipelines%20are%20designed%20to%20simplify%20the%20process%20of%20building%20and%20deploying%20machine%20learning%20systems%20at%20scale.%0A*%20%E8%AA%9E%E6%B3%95%3A%20yaml%0A*%20!%5B%5D(https%3A%2F%2Fhackmd.io%2F_uploads%2FSJmKHhJ76.png)%0A*%20%E6%8C%81%E7%BA%8C%E6%95%B4%E5%90%88%20(CI)%3A%20%E9%96%8B%E7%99%BC%E8%80%85%E5%8F%AF%E4%BB%A5%E5%9C%A8%E7%A8%8B%E5%BC%8F%E7%A2%BC%E5%BA%AB%E4%B8%AD%E5%90%88%E4%BD%B5%E7%A8%8B%E5%BC%8F%E7%A2%BC%E6%9B%B4%E6%94%B9%EF%BC%8CPipeline%20%E5%B0%87%E8%87%AA%E5%8B%95%E6%B8%AC%E8%A9%A6%E4%B8%A6%E9%A9%97%E8%AD%89%E9%80%99%E4%BA%9B%E6%9B%B4%E6%94%B9%EF%BC%8C%E4%BB%A5%E7%A2%BA%E4%BF%9D%E5%AE%83%E5%80%91%E4%B8%8D%E6%9C%83%E7%A0%B4%E5%A3%9E%E7%8F%BE%E6%9C%89%E7%9A%84%E5%8A%9F%E8%83%BD%E3%80%82%20%0A*%20%E5%92%8C%E6%8C%81%E7%BA%8C%E4%BA%A4%E4%BB%98%20(CD)%EF%BC%9A%E4%B8%80%E6%97%A6%E7%A8%8B%E5%BC%8F%E7%A2%BC%E9%80%9A%E9%81%8E%E4%BA%86%E6%89%80%E6%9C%89%E7%9A%84%E6%B8%AC%E8%A9%A6%EF%BC%8C%E5%AE%83%E5%B0%B1%E6%9C%83%E8%87%AA%E5%8B%95%E9%83%A8%E7%BD%B2%E5%88%B0%E7%94%9F%E7%94%A2%E7%92%B0%E5%A2%83%E6%88%96%E4%BB%BB%E4%BD%95%E6%82%A8%E9%81%B8%E6%93%87%E7%9A%84%E7%92%B0%E5%A2%83%E4%B8%AD%E3%80%82%0A*%20%E4%BB%A5%E4%B8%8B%E5%85%A7%E5%AE%B9%E5%B0%9A%E6%9C%AA%E7%A2%BA%E5%AE%9A%0A*%20ml-pipeline-5d6bf9c74-d2x6l%EF%BC%9A%20(%E4%B8%BB%E8%A6%81%E5%AE%B9%E5%99%A8)%0A*%20ml-pipeline-persistenceagent-865d967589-s26fm%EF%BC%9A(%E8%99%95%E7%90%86%E6%8C%81%E4%B9%85%E6%80%A7%EF%BC%8C%E8%B2%A0%E8%B2%AC%E7%AE%A1%E7%90%86%E7%AE%A1%E9%81%93%E7%9A%84%E8%B3%87%E6%96%99%E5%84%B2%E5%AD%98%E5%92%8C%E6%AA%A2%E7%B4%A2)%0A*%20ml-pipeline-scheduledworkflow-7fc64fd5-qk5s6%EF%BC%9A(%E8%99%95%E7%90%86%E7%AE%A1%E9%81%93%E4%B8%AD%E7%9A%84%E8%A8%88%E5%8A%83%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B%EF%BC%8C%E5%8D%94%E8%AA%BF%E5%9C%A8%E6%8C%87%E5%AE%9A%E7%9A%84%E6%99%82%E9%96%93%E6%88%96%E9%96%93%E9%9A%94%E5%85%A7%E5%9F%B7%E8%A1%8C%E5%90%84%E7%A8%AE%E4%BB%BB%E5%8B%99)%0A*%20ml-pipeline-ui-694458fb88-hwq67%EF%BC%9A(ui%E8%A1%A8%E7%A4%BA%E7%82%BA%E7%AE%A1%E9%81%93%E6%8F%90%E4%BE%9B%E4%BD%BF%E7%94%A8%E8%80%85%E4%BB%8B%E9%9D%A2)%0A*%20ml-pipeline-viewer-crd-5b484b66d7-tz9xw%EF%BC%9A(%E6%AA%A2%E8%A6%96%E6%88%96%E7%AE%A1%E7%90%86M%E7%AE%A1%E9%81%93%E4%B8%AD%E7%9A%84%E8%87%AA%E8%A8%82%E8%B3%87%E6%BA%90)%0A*%20ml-pipeline-visualizationserver-86d7b678f-qhvd4%EF%BC%9A(%E8%B2%A0%E8%B2%AC%E6%B8%B2%E6%9F%93%E8%A6%96%E8%A6%BA%E5%8C%96%EF%BC%8C%E6%8F%90%E4%BE%9B%E8%B3%87%E6%96%99%E6%88%96%E7%AE%A1%E9%81%93%E9%81%8E%E7%A8%8B%E7%9A%84%E5%9C%96%E5%BD%A2%E8%A1%A8%E7%A4%BA%E3%80%82)%0A%0A%3A%3A%3A%0A%3A%3A%3Asuccess%0A%3Abulb%3AMinIO%20Bucket%20%E6%98%AF%20MinIO%20%E4%B8%AD%E7%9A%84%E4%B8%80%E5%80%8B%E9%87%8D%E8%A6%81%E6%A6%82%E5%BF%B5%E3%80%82%20MinIO%20%E6%98%AF%E4%B8%80%E6%AC%BE%E9%AB%98%E6%95%88%E8%83%BD%E7%9A%84%E5%88%86%E6%95%A3%E5%BC%8F%E7%89%A9%E4%BB%B6%E5%84%B2%E5%AD%98%E4%BC%BA%E6%9C%8D%E5%99%A8%EF%BC%8C%E7%9B%B8%E5%AE%B9%E6%96%BCAmazon%20S3%EF%BC%88Simple%20Storage%20Service%EF%BC%89%E7%9A%84API%E3%80%82%20%E5%AE%83%E4%B8%BB%E8%A6%81%E7%94%A8%E6%96%BC%E5%84%B2%E5%AD%98%E9%9D%9E%E7%B5%90%E6%A7%8B%E5%8C%96%E6%95%B8%E6%93%9A%EF%BC%8C%E5%A6%82%E7%85%A7%E7%89%87%E3%80%81%E5%BD%B1%E7%89%87%E3%80%81%E6%97%A5%E8%AA%8C%E6%AA%94%E6%A1%88%E7%AD%89%E3%80%82%0A%0A%E5%9C%A8%20MinIO%20%E7%B3%BB%E7%B5%B1%E4%B8%AD%EF%BC%8C%22Bucket%22%20%E6%98%AF%E7%94%A8%E4%BE%86%E7%B5%84%E7%B9%94%E5%84%B2%E5%AD%98%E7%9A%84%E5%9F%BA%E6%9C%AC%E5%96%AE%E5%85%83%EF%BC%8C%E9%A1%9E%E4%BC%BC%E6%96%BC%E6%AA%94%E6%A1%88%E7%B3%BB%E7%B5%B1%E4%B8%AD%E7%9A%84%E8%B3%87%E6%96%99%E5%A4%BE%E3%80%82%20%E6%AF%8F%E5%80%8B%20Bucket%20%E5%8F%AF%E4%BB%A5%E5%8C%85%E5%90%AB%E4%BB%BB%E6%84%8F%E6%95%B8%E9%87%8F%E7%9A%84%E7%89%A9%E4%BB%B6%EF%BC%88%E5%8D%B3%E6%AA%94%E6%A1%88%EF%BC%89%EF%BC%8C%E4%B8%A6%E4%B8%94%E6%AF%8F%E5%80%8B%E7%89%A9%E4%BB%B6%E9%83%BD%E5%84%B2%E5%AD%98%E5%9C%A8%E4%B8%80%E5%80%8B%20Bucket%20%E4%B8%AD%E3%80%82%20%E4%BD%BF%E7%94%A8%E8%80%85%E5%8F%AF%E4%BB%A5%E5%BB%BA%E7%AB%8B%E3%80%81%E5%88%AA%E9%99%A4%E3%80%81%E5%88%97%E5%87%BA%20Buckets%EF%BC%8C%E4%B8%A6%E4%B8%94%E5%8F%AF%E4%BB%A5%E8%A8%AD%E5%AE%9A%E4%B8%8D%E5%90%8C%E7%9A%84%E6%AC%8A%E9%99%90%E4%BE%86%E7%AE%A1%E7%90%86%E8%AA%B0%E5%8F%AF%E4%BB%A5%E5%AD%98%E5%8F%96%E9%80%99%E4%BA%9B%20Buckets%20%E5%92%8C%E5%85%B6%E4%B8%AD%E7%9A%84%E7%89%A9%E4%BB%B6%E3%80%82%0A%0AMinIO%20Bucket%20%E6%98%AF%20MinIO%20%E4%B8%AD%E7%94%A8%E6%96%BC%E5%84%B2%E5%AD%98%E5%92%8C%E7%B5%84%E7%B9%94%E8%B3%87%E6%96%99%E7%9A%84%E5%AE%B9%E5%99%A8%EF%BC%8C%E9%A1%9E%E4%BC%BC%E6%96%BC%E9%9B%B2%E7%AB%AF%E5%84%B2%E5%AD%98%E6%9C%8D%E5%8B%99%E4%B8%AD%E7%9A%84%E8%B3%87%E6%96%99%E5%A4%BE%E6%88%96%E5%84%B2%E5%AD%98%E6%A1%B6%E3%80%82%0A%3A%3A%3A%0AReferance%3A%0A*%20https%3A%2F%2Fgithub.com%2Fkubeflow%2Fpipelines%2Fissues%2F6839%0A%20Error%3A%20503%20in%20ml-pipeline-ui-artifact%0A*%20https%3A%2F%2Fstackoverflow.com%2Fquestions%2F75450530%2Fkubernetes-pods-crashes-when-running-gitlab-pipeline%0AKubernetes%20pods%20crashes%20when%20running%20GitLab%20Pipeline%0A*%20https%3A%2F%2Fgithub.com%2Fkubeflow%2Fpipelines%2Fissues%2F741%23issuecomment-461105642%0Aml-pipeline-persistenceagent%20restarts%20forever%0A*%20https%3A%2F%2Flearn.microsoft.com%2Fzh-tw%2Fazure%2Fdevops%2Fpipelines%2F%3Fview%3Dazure-devops%0AAzure%20Pipelines%20%E6%96%87%E4%BB%B6%0A*%20https%3A%2F%2Fwiki.o-ran-sc.org%2Fpages%2Fviewpage.action%3FpageId%3D57377062%0ARelease%20G%3A%20AI%20%26%20Machine%20Learning%20(%20pipeline%20and%20minio%20intr)","viewMode":"publish","unreadState":[],"isOwner":false,"isSignIn":false,"isLiked":false,"isBookmarked":false,"publishType":"view","commentCount":0,"isNotesRecommendationsEnabled":true,"recommendedNotes":[],"lastChangeUserInfo":{"name":"Benson214","path":"Benson214","avatarUrl":"https%3A%2F%2Fwww.gravatar.com%2Favatar%2F1028091d149795b65da388935e266f70%3Fs%3D96"}}`);
+  window.owner = "f13b4ef6-6709-435b-86e3-c779ec3549a1";
+  (function () {
+    const decodeStringProps = (props) => {
+      for (const key in props) {
+        if (typeof props[key] === 'string') {
+          props[key] = decodeURIComponent(props[key])
+        } else if (typeof props[key] === 'object') {
+          decodeStringProps(props[key])
+        }
+      }
+    }
+    decodeStringProps(window.publishProps)
+  })()
+</script>
+
+
+    <script src="https://tally.so/widgets/embed.js"></script>
+
+    
+</head>
+
+<body style="display:none;">
+    <div id="toasts-container" class="toasts-container z-[2000]"></div>
+    <div id="publish-page">
+
+# AIML Debug
+## 1. FIX AIML potential problem 
+( when the system or VM is restarted, The AIMLFW is not restoring to original state before restart.)
+
+
+### Check when restart what kind of problem VM have
+![](https://hackmd.io/_uploads/rkT8DDRzT.png)
+
+
+### Research the problems meaning
+查看特定 Namespace 中的 Pod 的日志，使用以下指令：
+```python=1
+  kubectl logs -n kubeflow &lt;pod_name&gt;
+```
+Pod: ml-pipeline
+![](https://hackmd.io/_uploads/Hy0dhv0G6.png)
+:::warning
+:warning: Faild to check if Minio bucket exists
+:::
+Pod: ml-pipeline-persistence
+![](https://hackmd.io/_uploads/By0f27y7a.jpg)
+:::warning
+:warning: Waiting for ml pipeline API server failed after all atempts。
+:::
+
+
+
+
+
+
+### Examine the pipeline persistence 
+ 
+*  Error : ==Waiting for ml pipeline API server failed after all atempts。==
+*  The error say persistence agent is unable to connect to the ML Pipeline API server.
+*  ![](https://hackmd.io/_uploads/SyyWJi1X6.png)
+      And the API server is stop working
+*  So we verify that the ml-pipeline-persistence problem is cause by ml-pipeline
+ 
+
+### Examine the pipeline
+*  Error : ==Faild to check if Minio bucket exists。==
+*  Describe the pod
+```python=9
+  kubectl describe pod &lt;pod-name&gt; -n my-namespace
+```
+*  Result
+```python=9
+  ml-pipeline-api-server:
+    Container ID:   docker://dd350f629ca8d2a6d67d5b3581f9b0cc1d8ec8b8e6fba48f06fe07abb40a825e
+    Image:          api_server_local:latest
+    Image ID:       docker://sha256:64d680a05faae32d0e90037f9ae213b312c6984fb835ebaeb561a597f470f529
+    Ports:          8888/TCP, 8887/TCP
+    Host Ports:     0/TCP, 0/TCP
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    255
+      Started:      Sun, 05 Nov 2023 21:42:28 +0800
+      Finished:     Sun, 05 Nov 2023 21:42:29 +0800
+    Ready:          False
+    Restart Count:  231
+```
+* The `ml-pipeline-api-server` container in the `ml-pipeline-5d6bf9c74-d2x6l` pod is repeatedly crashing and entering a `CrashLoopBackOff` state due to failed liveness and readiness probes, indicated by frequent restart attempts and termination with exit code 255.
+
+* Check container logs
+```python=9
+  kubectl logs ml-pipeline-5d6bf9c74-d2x6l -n kubeflow -c ml-pipeline-api-server --previous
+```
+* Result
+![1.png](https://hackmd.io/_uploads/H1yvmmBXT.png)
+* The API server failed to check if a Minio bucket exists because it couldn&#39;t connect to the Minio server at the leofs pod.
+
+
+  
+* Find out which pod have minio service
+
+### Wrong hypothesis
+*  The pod’s yaml file have nothing ( no matter restart or not )
+  ![](https://hackmd.io/_uploads/rkQcm0Z7T.png)
+* The YAML file is empty, which indicates that the configuration for this pod comes from an external source, and is dynamically generated. This leads to the inability to retrieve the configuration file upon restarting, and consequently, the inability to launch it locally.
+
+* The hypothesis is wrong because although the ml-pipeline.yaml is hypothesis, but in the terminal still can get the pod’s yaml
+### Find the error again
+Pod: ml-pipeline
+![](https://hackmd.io/_uploads/Hy0dhv0G6.png)
+:::warning
+:warning: The error pod is from leofs setting
+:::
+
+
+### Design solution
+* Use this command to reinstall the leof pod.
+```python=
+cd aimlfw-dep/tools/leofs/bin
+./install_leofs.sh
+```
+* After you restart, use this command to delete ml-pipeline pod.
+```python=
+kubectl delete pod &lt;your pod name&gt; -n kubeflow 
+```
+
+
+
+
+:::success
+:bulb: **Relation between pod and server**
+
+Pod：Pod 是 Kubernetes 中最小的可部署單元，它可以包含一個或多個容器。 Pod 通常運行一個應用程式或一組協作應用程序，它們在同一個網路命名空間內，可以直接透過 localhost 相互通訊。 Pod 可以臨時創建和銷毀，具有短暫的生命週期。
+
+Service：Service 是 Kubernetes 中的抽象層，用於提供對 Pod 集合的網路存取。它為一組 Pod 指派了一個穩定的虛擬 IP 位址和一個 DNS 名稱，這樣其他服務或外部用戶端就可以使用這些資訊來存取這組 Pod。 Service 分為不同類型，包括 ClusterIP、NodePort 和 LoadBalancer，根據不同的使用情境選擇不同的類型。
+
+總而言之，Service 充當了 Pod 集合的網路代理，它們將流量從外部路由到正確的 Pod，實現了網路的負載平衡和服務。
+:::
+
+:::success
+
+:bulb: **What is pipeline**
+
+* Kubeflow Pipelines is a platform for building and deploying portable, scalable machine learning (ML) workflows using Docker containers.
+* The isolation provided by containers allows machine learning stages to be portable and reproducible.
+* Kubeflow Pipelines are designed to simplify the process of building and deploying machine learning systems at scale.
+* 語法: yaml
+* ![](https://hackmd.io/_uploads/SJmKHhJ76.png)
+* 持續整合 (CI): 開發者可以在程式碼庫中合併程式碼更改，Pipeline 將自動測試並驗證這些更改，以確保它們不會破壞現有的功能。 
+* 和持續交付 (CD)：一旦程式碼通過了所有的測試，它就會自動部署到生產環境或任何您選擇的環境中。
+* 以下內容尚未確定
+* ml-pipeline-5d6bf9c74-d2x6l： (主要容器)
+* ml-pipeline-persistenceagent-865d967589-s26fm：(處理持久性，負責管理管道的資料儲存和檢索)
+* ml-pipeline-scheduledworkflow-7fc64fd5-qk5s6：(處理管道中的計劃工作流程，協調在指定的時間或間隔內執行各種任務)
+* ml-pipeline-ui-694458fb88-hwq67：(ui表示為管道提供使用者介面)
+* ml-pipeline-viewer-crd-5b484b66d7-tz9xw：(檢視或管理M管道中的自訂資源)
+* ml-pipeline-visualizationserver-86d7b678f-qhvd4：(負責渲染視覺化，提供資料或管道過程的圖形表示。)
+
+:::
+:::success
+:bulb:MinIO Bucket 是 MinIO 中的一個重要概念。 MinIO 是一款高效能的分散式物件儲存伺服器，相容於Amazon S3（Simple Storage Service）的API。 它主要用於儲存非結構化數據，如照片、影片、日誌檔案等。
+
+在 MinIO 系統中，&#34;Bucket&#34; 是用來組織儲存的基本單元，類似於檔案系統中的資料夾。 每個 Bucket 可以包含任意數量的物件（即檔案），並且每個物件都儲存在一個 Bucket 中。 使用者可以建立、刪除、列出 Buckets，並且可以設定不同的權限來管理誰可以存取這些 Buckets 和其中的物件。
+
+MinIO Bucket 是 MinIO 中用於儲存和組織資料的容器，類似於雲端儲存服務中的資料夾或儲存桶。
+:::
+Referance:
+* https://github.com/kubeflow/pipelines/issues/6839
+ Error: 503 in ml-pipeline-ui-artifact
+* https://stackoverflow.com/questions/75450530/kubernetes-pods-crashes-when-running-gitlab-pipeline
+Kubernetes pods crashes when running GitLab Pipeline
+* https://github.com/kubeflow/pipelines/issues/741#issuecomment-461105642
+ml-pipeline-persistenceagent restarts forever
+* https://learn.microsoft.com/zh-tw/azure/devops/pipelines/?view=azure-devops
+Azure Pipelines 文件
+* https://wiki.o-ran-sc.org/pages/viewpage.action?pageId=57377062
+Release G: AI &amp; Machine Learning ( pipeline and minio intr)</div>
+    <!-- signin modal -->
+
+<div class="modal fade signin-modal" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="margin-top: 10px; right: 20px; position: absolute;"><span aria-hidden="true">&times;</span></button>
+            
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+<h3>Sign in</h3>
+
+<form data-toggle="validator" role="form" class="form-horizontal" method="post" enctype="application/x-www-form-urlencoded" id="signin-form">
+    <div class="hmd-dn"><input type="hidden" name="_csrf" value="jIp1ZIvt-xLeIGh_78ZkgicWM29KTfc7jro8"></div>
+    <div class="hmd-dn"><input type="hidden" name="create_team" value="false"></div>
+    <div class="hmd-dn"><input type="hidden" name="create_paid_team" value="false"></div>
+    
+    <div class="form-group  ">
+        <label for="email" class="control-label">Email</label>
+        <label for="inputEmail" class="control-label pull-right errors">
+            
+        </label>
+        <span class="help-block control-label with-errors pull-right" style="margin-top: 14px"></span>
+        <div class="input-block">
+            
+                <input type="email" class="form-control" name="email" placeholder="Your email" required autocomplete="email">
+            
+            <span class="error-sign"></span>
+        </div>
+    </div>
+    <div class="form-group ">
+        <label for="password" class="control-label">Password</label>
+        <label for="inputPassword" class="control-label pull-right errors">
+            
+        </label>
+        <span class="help-block control-label with-errors pull-right" style="margin-top: 14px"></span>
+        <div class="input-block">
+            <input type="password" class="form-control" name="password" placeholder="Your password" required autocomplete="current-password" maxlength="128">
+            <span class="error-sign"></span>
+            
+                <span class="control-label pull-right !text-normal !leading-normal !font-normal !mt-1.5"><a href="https://hackmd.io/settings/forgotPassword" style="text-decoration: underline;">Forgot password</a></span>
+            
+        </div>
+    </div>
+
+    <div style="text-align: center; padding-top: 15px; margin-bottom: 0px;">
+        <div
+            hidden
+            id="hmd-captcha"
+            data-provider=""
+            data-captcha-data=""
+            class="flex justify-center"
+        ></div>
+
+        
+            <input type="submit" class="neo-btn neo-btn-primary !justify-center !py-3.5 !mx-auto w-[180px] text-[18px]" formaction="https://hackmd.io/login" value="Sign in">
+        
+
+        
+    </div>
+</form>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        <p class="separator">or</p>
+    
+
+    
+        <p>By clicking below, you agree to our <a href="https://hackmd.io/s/terms" target="_blank">terms of service</a>.</p>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+<script id="gsi-client" src="https://accounts.google.com/gsi/client" async defer nonce="038a634c-5240-4088-9f26-b9e65bce7724"></script>
+<script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+    function handleCredentialResponse(response) {
+        const form = document.getElementById('sign-in-with-google-form')
+        form.children.credential.value = response.credential
+        form.children.method.value = location.href.toLowerCase() === 'https://hackmd.io/settings#general' ? 'merge' : 'login'
+        form.submit()
+    }
+    var GSI_READY = new Promise(function (resolve) {
+        function initialize () {
+            google.accounts.id.initialize({
+                client_id: '911617723593-drikdibvvn63slfd6kbqigo8ql1no55s.apps.googleusercontent.com',
+                callback: handleCredentialResponse
+            })
+            const loginPath = '/login'
+            const joinPath = '/join'
+            const renderButton = function () {
+                google.accounts.id.renderButton(
+                    document.getElementById('sign-in-with-google-button'),
+                    { type: 'standard', width: 250 }
+                )
+            }
+            if (location.pathname.toLowerCase() === loginPath || location.pathname.toLowerCase() === joinPath) {
+                renderButton()
+            } else {
+                $('.signin-modal').one('shown.bs.modal', function () {
+                    renderButton()
+                })
+            }
+            resolve()
+        }
+
+        window.addEventListener('load', function () { initialize() })
+    })
+</script>
+<form class="hidden" id="sign-in-with-google-form" action="/auth/google" method="post">
+    <input type="hidden" name="credential">
+    <input type="hidden" name="method">
+    <input type="hidden" name="_csrf" value="jIp1ZIvt-xLeIGh_78ZkgicWM29KTfc7jro8">
+</form>
+
+
+<div class="oauth-sign-container">
+    
+    <div id="sign-in-with-google-button"></div>
+    
+    
+    <a href="https://hackmd.io/auth/facebook" class="btn btn-lg btn-block btn-social btn-facebook">
+        <i class="fa fa-facebook"></i> Sign in via Facebook
+    </a>
+    
+    
+    <a href="https://hackmd.io/auth/twitter" class="btn btn-lg btn-block btn-social btn-twitter">
+        <i class="fa fa-twitter"></i> Sign in via Twitter
+    </a>
+    
+    
+    <a href="https://hackmd.io/auth/github" class="btn btn-lg btn-block btn-social btn-github">
+        <i class="fa fa-github"></i> Sign in via GitHub
+    </a>
+    
+    
+    <a href="https://hackmd.io/auth/dropbox" class="btn btn-lg btn-block btn-social btn-dropbox">
+        <i class="fa fa-dropbox"></i> Sign in via Dropbox
+    </a>
+    
+    
+    
+      <a href="#" class="btn btn-block btn-social btn-web3 bg-gray-800 hocus:bg-[#2b2b2b] text-white hocus:text-white">
+          <img src="https://hackmd.io/images/wallet.svg" style="max-height: 20px; margin-top: 8px; margin-left: 6px; border: none;">
+          <span class="sign-in-wallet-text">
+              Sign in with Wallet
+          </span>
+
+          <div class="inline-flex items-center justify-between w-full hidden web3-wallet-info">
+              <span>
+                   Wallet
+                   (
+                    <span class="web3-wallet-address"></span>
+                   )
+              </span>
+
+              <i class="fa fa-arrow-right" aria-hidden="true"></i>
+          </div>
+      </a>
+
+      <small class="web3-wallet-info hidden text-left hocus:text-white underline hocus:underline block pt-2 ui-disconnect-connected-wallets text-gray-600 cursor-pointer">
+          Connect another wallet
+      </small>
+    
+</div>
+
+
+
+
+    <div >
+        <p>New to HackMD? <a href="https://hackmd.io/join" class="plausible-event-name=LoginModalSignUp">Sign up</a></p>
+    </div>
+
+
+
+
+        </div>
+    </div>
+</div>
+
+    
+    <script src="https://www.googletagmanager.com/gtag/js?id=G-NGVZMM6DR6"></script>
+    <script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        let userid = (document.cookie.match('(^|; )userid=([^;]*)')||0)[2];
+        gtag('config', 'G-NGVZMM6DR6', {'user_id': userid});
+        
+    </script>
+
+
+    
+<script src="https://browser.sentry-cdn.com/5.15.5/bundle.min.js" crossorigin="anonymous"></script>
+<script nonce="038a634c-5240-4088-9f26-b9e65bce7724">
+  Sentry.init({ dsn: 'https://73410f1915d84abc8b2dd1f1aabd1c82@sentry.hackmd.dev/4', environment: 'production', integrations: function (intrus) { return intrus.filter(function (itr) { return itr.name !== 'TryCatch' }) } });
+  const sentryUserId = document.cookie
+    .split('; ')
+    .map(cookie => cookie.split('='))
+    .reduce((acc, [k, v]) => k === 'userid' ? v : acc, '');
+  Sentry.setUser(sentryUserId ? { id: sentryUserId } : null);
+</script>
+
+
+    
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KLW9Z3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+
+    <script src="https://hackmd.io/api/i18n.js"></script>
+     <script src="https://assets.hackmd.io/build/font-vendor.da2ff914b6696699c15e.js" defer="defer"></script><script src="https://assets.hackmd.io/build/common-vendor.d6e5c1bdd49586874403.js" defer="defer"></script><script src="https://assets.hackmd.io/build/pretty-vendor.0f9283186e37f165578f.js" defer="defer"></script><script src="https://assets.hackmd.io/build/pretty-common.080f16fad399ce514069.js" defer="defer"></script><script src="https://assets.hackmd.io/build/pretty.c5d8f33947b7408c9e9d.js" defer="defer"></script>
+
+    
+
+</body>
+</html>
