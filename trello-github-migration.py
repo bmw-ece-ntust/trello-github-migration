@@ -557,19 +557,54 @@ class GitHubClient:
 
     def get_existing_issues(self, repo_full_name):
         # Fetch all issues (title, url) to avoid duplicates
-        # Limiting to open issues to be faster
+        # Increased limit to 4000 to cover larger repos
         print(f"  Fetching existing issues from {repo_full_name}...")
         cmd = [
             "issue", "list",
             "--repo", repo_full_name,
-            "--limit", "1000",
+            "--limit", "4000",
             "--state", "all",
-            "--json", "title,url,body"
+            "--json", "title,url,body,id"
         ]
         out = self.run_gh_cmd(cmd)
         if out:
             return json.loads(out)
         return []
+
+    def reset_project_columns(self, project_url):
+        print(f"  Resetting columns for {project_url}...")
+        status_data = self.get_project_status_field(project_url)
+        if not status_data: return
+        
+        # Create a single 'Inbox' option to clear others
+        # We must use the mutation to SET options.
+        
+        mutation = """
+        mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+          updateProjectV2Field(input: {
+            fieldId: $fieldId,
+            singleSelectOptions: $options
+          }) {
+            projectV2Field {
+              ... on ProjectV2SingleSelectField {
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+        """
+        
+        # Reset to a single "Inbox" option
+        payload = [{"name": "Inbox", "color": "GRAY", "description": "Default reset column"}]
+        
+        res = self.run_graphql(mutation, {"fieldId": status_data['field_id'], "options": payload})
+        if res and 'data' in res:
+            print("  [Project] Columns reset to 'Inbox'.")
+        else:
+             print(f"  [Error] Failed to reset columns. {res}")
 
 # --- Verification Functions ---
 def verify_access(config):
@@ -839,6 +874,10 @@ def clear_project_data(config, board_filter=None):
             # Safety break if we processed less than limit, implies we are done
             if len(items) < 1000:
                  break
+        
+        # Reset columns
+        gh_client.reset_project_columns(target_url)
+        print("  Board cleanup complete.")
 
 def process_backups(config, mode="all", board_filter=None):
     # mode: 'migrate', 'all' (kept for compatibility, though strictly we only migrate now)
@@ -984,67 +1023,89 @@ def process_backups(config, mode="all", board_filter=None):
                     
                     issue_url = None
                     if card['name'] in existing_map:
-                        issue_url = existing_map[card['name']]['url']
-                        print(f"      -> [Exists] Link: {issue_url}")
+                        issue_data = existing_map[card['name']]
+                        issue_url = issue_data['url']
+                        issue_node_id = issue_data.get('id') # Global node ID usually, or REST id
+                        # We need Node ID for GraphQL batch add. 'id' in REST json usually is REST numeric ID or node_id? 
+                        # `gh issue list --json id` returns Node ID (e.g. I_kwDO...)
+                        
+                        print(f"      -> [Exists] Checking content. Link: {issue_url}")
                         
                         # Verify Comments
                         trello_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+                        # Sort by date ascending (oldest first)
+                        trello_comments.sort(key=lambda x: x['date'])
+                        
                         if trello_comments:
-                            print(f"      [Checker] Verifying {len(trello_comments)} Trello comments on GitHub...")
+                            # Fetch current GH comments
                             gh_details = gh_client.get_issue_comments(issue_url)
                             
                             if gh_details:
-                                gh_body = gh_details.get('body', '') or ''
-                                gh_comments = [c['body'] for c in gh_details.get('comments', [])]
-                                all_gh_text = gh_body + "\n" + "\n".join(gh_comments)
+                                gh_comments_text = [c['body'].strip() for c in gh_details.get('comments', [])]
+                                # Also check body in case it was migrated there (old logic)
+                                gh_body = (gh_details.get('body', '') or '').strip()
                                 
-                                added_count = 0
+                                missing_comments = []
+                                
                                 for tc in trello_comments:
                                     text = tc.get('data', {}).get('text', '').strip()
                                     if not text: continue
                                     
-                                    # Simple check: Is the text content present?
-                                    # We strip to avoid whitespace mismatches
-                                    if text in all_gh_text:
-                                        # Assuming present
-                                        continue
-                                    
-                                    # If not in body or comments, we assume it's missing.
-                                    # Note: Formatting might make strict matching fail. 
-                                    # Trello comments in migration are wrapped in blockquotes.
-                                    # Let's try to find substring or look for author signature?
-                                    # "Safe" approach: Add it if not found. Duplicate risk? 
-                                    # Using a stricter substring check on the text itself.
-                                    
+                                    # Construct the formatted comment we expect
                                     author = tc.get('memberCreator', {}).get('fullName', 'Unknown')
                                     username = tc.get('memberCreator', {}).get('username', '')
                                     
-                                    # Date Handling (UTC -> Taiwan GMT+8)
                                     date_str = tc.get('date', '')
                                     try:
-                                        # Parse ISO 8601 (e.g. 2023-10-27T03:00:23.123Z)
                                         dt_utc = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
                                         dt_taiwan = dt_utc + timedelta(hours=8)
                                         date_full = dt_taiwan.strftime("%Y-%m-%d %H:%M:%S") + " (Taiwan GMT+8)"
                                     except ValueError:
-                                        # Fallback if format differs
                                         date_full = date_str.replace('T', ' ').replace('.000Z', '') + " (UTC)"
 
-                                    # Format: "Author (@username) on YYYY-MM-DD HH:MM:SS (Taiwan GMT+8)"
                                     header = f"**{author}**"
                                     if username: header += f" (@{username})"
                                     header += f" on {date_full}"
                                     
-                                    comment_block = f"> {header}:\n> {text}"
+                                    expected_block = f"> {header}:\n> {text}"
                                     
-                                    print(f"      [Checker] Missing comment from {author}. Adding...")
-                                    gh_client.add_comment(issue_url, comment_block)
-                                    added_count += 1
+                                    # Check strict existence first (best for not duplicating)
+                                    # We also check if the raw text exists in body/comments to avoid dupes if format changed
+                                    found = False
+                                    
+                                    # 1. Exact match in comments
+                                    if expected_block in gh_comments_text:
+                                        found = True
+                                    
+                                    # 2. Relaxed match: Check if text + author is present in any comment
+                                    if not found:
+                                        for gh_c in gh_comments_text:
+                                            if text in gh_c and author in gh_c:
+                                                found = True
+                                                break
+                                    
+                                    # 3. Check body (for old migration style)
+                                    if not found:
+                                        if text in gh_body and author in gh_body:
+                                            found = True
+                                            
+                                    if not found:
+                                        # It's missing
+                                        missing_comments.append(expected_block)
                                 
-                                if added_count > 0:
-                                     print(f"      [Checker] Added {added_count} missing comments.")
+                                if missing_comments:
+                                    print(f"      [Checker] Found {len(missing_comments)} missing comments (out of {len(trello_comments)} total). Adding...")
+                                    if issue_node_id:
+                                         gh_client.add_comments_batch(issue_node_id, missing_comments)
+                                    else:
+                                         # Fallback if we don't have node_id (should verify if 'id' from list is node_id)
+                                         # The CLI 'issue list --json id' returns GraphQL Node ID.
+                                         print("      [Warning] Node ID missing for batch. Using slow add.")
+                                         for mc in missing_comments:
+                                             gh_client.add_comment(issue_url, mc)
+                                             time.sleep(1)
                                 else:
-                                     print(f"      [Checker] All comments verified.")
+                                    print(f"      [Checker] All {len(trello_comments)} Trello comments verified present.")
                             else:
                                 print("      [Checker] Failed to fetch issue details. Skipping verification.")
 
@@ -1201,5 +1262,6 @@ if __name__ == "__main__":
     if args.command == "clear":
         clear_project_data(cfg, board_filter=args.board)
     else:
+        # Note: We do NOT clear automatically anymore as per robust update request
         process_backups(cfg, mode=args.command, board_filter=args.board)
 

@@ -71,6 +71,42 @@ class TrelloClient:
         # Fetch all comments for a specific card
         return self._request("GET", f"/cards/{card_id}/actions", params={"filter": "commentCard", "limit": 1000})
 
+    def download_attachment(self, url, filepath):
+        # Trello attachments from private boards need auth.
+        headers = {
+            "Authorization": f"OAuth oauth_consumer_key=\"{self.api_key}\", oauth_token=\"{self.token}\""
+        }
+        
+        try:
+            # First try without auth (public/external links)
+            # But for Trello hosted files (s3.amazonaws.com/trello-...), we often need auth header if board is private?
+            # Actually Trello S3 URLs used to be public if you had the link, but they changed it.
+            # Best way for Trello attachment URL: append key/token if it is a trello.com URL?
+            # Or use Authorization header.
+            
+            # The URL provided in 'attachments' ["url"] usually works. 
+            # If it's a direct link to Trello storage, it might need auth.
+            
+            response = requests.get(url, stream=True, headers=headers)
+            
+            # If 401/403, maybe it's not a Trello URL but external? 
+            # If it's external (e.g. Google Drive), this header might confuse it?
+            # But usually ignored.
+            
+            if response.status_code != 200:
+                # Try without headers (for external links)
+                response = requests.get(url, stream=True)
+            
+            response.raise_for_status()
+            
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192): 
+                    f.write(chunk)
+            return True
+        except Exception as e:
+            print(f"      [Error] Download failed: {e}")
+            return False
+
 def get_backup_path(board):
     # Ensure back-ups folder exists
     os.makedirs("back-ups", exist_ok=True)
@@ -80,7 +116,7 @@ def get_backup_path(board):
     filename = f"{board['id']} - {safe_name}.json"
     return os.path.join("back-ups", filename)
 
-def process_backups(config, force_refresh=False, skip_verify=False, board_filter=None):
+def process_backups(config, force_refresh=False, skip_verify=False, board_filter=None, download_attachments=False):
     trello_conf = config['tokens']['trello']
     trello_client = None
     if trello_conf['api_key'] and trello_conf['api_key'] != "YOUR_TRELLO_API_KEY":
@@ -218,6 +254,48 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
         
         print(f"\n  Verified comments for {len(cards)} cards (Updated missing: {updated_count}).")
         
+        # --- Attachment Downloading ---
+        if download_attachments:
+            print(f"  Downloading attachments...")
+            # Base attachments dir
+            safe_board_name = "".join([c for c in board['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()
+            attachments_dir = os.path.join("back-ups", f"{safe_board_name}_attachments")
+            
+            for i, card in enumerate(cards):
+                if card.get('closed', False):
+                    continue
+                
+                attachments = card.get('attachments', [])
+                if not attachments:
+                    continue
+                
+                # Setup card directory
+                card_safe_name = "".join([c for c in card['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()[:50]
+                card_dir = os.path.join(attachments_dir, f"{card['id']}_{card_safe_name}")
+                
+                # Check for at least one new attachment before creating dir? No, create logic is fine.
+                
+                for att in attachments:
+                    att_url = att['url']
+                    att_name = att['name']
+                    a_id = att['id']
+                    
+                    # Sanitize filename
+                    safe_filename = "".join([c for c in att_name if c.isalnum() or c in ('.', '-', '_', ' ')]).strip()
+                    if not safe_filename: safe_filename = f"attachment_{a_id}"
+                    
+                    # Prefix with ID to avoid collisions
+                    target_path = os.path.join(card_dir, f"{a_id}_{safe_filename}")
+                    
+                    if os.path.exists(target_path):
+                        continue
+                        
+                    if not os.path.exists(card_dir):
+                        os.makedirs(card_dir, exist_ok=True)
+
+                    print(f"    Downloading {safe_filename} (Card: {card_safe_name})...")
+                    trello_client.download_attachment(att_url, target_path)
+
         # Save enriched backup
         data['fetched_at'] = datetime.now().isoformat()
         with open(backup_file, 'w') as f:
@@ -229,8 +307,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Trello JSON Backup & Verify")
     parser.add_argument("--refresh", action="store_true", help="Force download fresh data from Trello")
     parser.add_argument("--skip-verify", action="store_true", help="Skip individual comment verification (faster)")
+    parser.add_argument("--download-attachments", action="store_true", help="Download all attachments (images/slides) to local folder")
     parser.add_argument("--board", help="Filter by board name (case-insensitive substring match)")
     args = parser.parse_args()
 
     cfg = load_config()
-    process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify, board_filter=args.board)
+    process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify, board_filter=args.board, download_attachments=args.download_attachments)
