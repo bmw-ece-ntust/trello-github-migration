@@ -179,80 +179,66 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
             # Save just in case
             with open(backup_file, 'w') as f:
                 json.dump(data, f, indent=2)
-            continue
-
+        
         # 2. Enrich Comment Data (Check completeness and map Global Actions to Cards)
-        # In a standard export, actions are in data['actions']. We must ensure they are mapped to cards for the migration script.
-        # AND we must check if they are truncated (Trello API limit 1000).
-        
-        print("  Processing comments (mapping and verifying)...")
-        cards = data['cards']
-        global_actions = data.get('actions', [])
-        
-        # Helper: Group global actions by card
-        actions_by_card = {}
-        for a in global_actions:
-            if 'card' in a['data'] and 'id' in a['data']['card']:
-                cid = a['data']['card']['id']
-                if cid not in actions_by_card: actions_by_card[cid] = []
-                actions_by_card[cid].append(a)
-        
-        updated_count = 0
-        
-        for i, card in enumerate(cards):
-            if card.get('closed', False):
-                continue
+        if not skip_verify:
+            print("  Processing comments (mapping and verifying)...")
+            cards = data['cards']
+            global_actions = data.get('actions', [])
             
-            # Progress
-            # Fetch existing count from current card data
-            current_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+            # Helper: Group global actions by card
+            actions_by_card = {}
+            for a in global_actions:
+                if 'card' in a['data'] and 'id' in a['data']['card']:
+                    cid = a['data']['card']['id']
+                    if cid not in actions_by_card: actions_by_card[cid] = []
+                    actions_by_card[cid].append(a)
             
-            if i % 10 == 0:
-                print(f"\r    Checking card [{i+1}/{len(cards)}] (Comments: {len(current_comments)})", end="", flush=True)
+            updated_count = 0
+            
+            for i, card in enumerate(cards):
+                if card.get('closed', False):
+                    continue
+                
+                # Progress
+                current_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+                
+                if i % 10 == 0:
+                    print(f"\r    Checking card [{i+1}/{len(cards)}] ({len(current_comments)} comments)...", end="", flush=True)
 
-            # 1. Populate card['actions'] from global dump if missing
-            # The migration script expects 'actions' inside the card.
-            if 'actions' not in card:
-                card['actions'] = actions_by_card.get(card['id'], [])
-            
-            # 2. Completeness Check
-            # Even with global actions, we might hit the 1000 limit of the board export.
-            # We "fetch individual comments" to guarantee completeness.
-            # This ensures "comments from each card is backed-up well".
-            
-            try:
-                # Store existing comments count
-                existing_comments_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
+                # 1. Populate card['actions'] from global dump if missing
+                if 'actions' not in card:
+                    card['actions'] = actions_by_card.get(card['id'], [])
                 
-                # Fetch authoritative comments from API
-                full_comments = trello_client.get_card_comments(card['id'])
-                
-                # Merge: Keep non-comment actions, replace comments
-                other_actions = [a for a in card.get('actions', []) if a['type'] != 'commentCard']
-                
-                # Update logic
-                if len(full_comments) > existing_comments_count:
-                     # We found more comments!
-                     updated_count += 1
-                     card['actions'] = other_actions + full_comments
-                elif len(full_comments) < existing_comments_count:
-                     # This is rare (maybe user deleted?), but use authoritative source
-                     card['actions'] = other_actions + full_comments
-                else:
-                     # Same count. 
-                     # Optimisation: Assume same if count matches.
-                     # But to be safe (content edit), we can update.
-                     # Let's update to be sure.
-                     card['actions'] = other_actions + full_comments
-                
-                final_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
-                if final_count > existing_comments_count:
-                    print(f"\r    Checking card [{i+1}/{len(cards)}] - Updated Comments: {existing_comments_count} -> {final_count}")
+                # 2. Completeness Check
+                try:
+                    existing_comments_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
+                    full_comments = trello_client.get_card_comments(card['id'])
+                    
+                    other_actions = [a for a in card.get('actions', []) if a['type'] != 'commentCard']
+                    
+                    if len(full_comments) > existing_comments_count:
+                         updated_count += 1
+                         card['actions'] = other_actions + full_comments
+                    elif len(full_comments) < existing_comments_count:
+                         card['actions'] = other_actions + full_comments
+                    else:
+                         card['actions'] = other_actions + full_comments
+                    
+                    final_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
+                    if final_count > existing_comments_count:
+                        print(f"\r    Checking card [{i+1}/{len(cards)}] - Updated Comments: {existing_comments_count} -> {final_count}")
 
-            except Exception as e:
-                print(f" Failed to fetch comments for {card['name']}: {e}")
-        
-        print(f"\n  Verified comments for {len(cards)} cards (Updated missing: {updated_count}).")
+                except Exception as e:
+                    print(f" Failed to fetch comments for {card['name']}: {e}")
+            
+            print(f"\n  Verified comments for {len(cards)} cards (Updated missing: {updated_count}).")
+            
+            # Save enriched backup
+            data['fetched_at'] = datetime.now().isoformat()
+            with open(backup_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            print(f"  Backup saved to: {backup_file}")
         
         # --- Attachment Downloading ---
         if download_attachments:
@@ -260,6 +246,8 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
             # Base attachments dir
             safe_board_name = "".join([c for c in board['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()
             attachments_dir = os.path.join("back-ups", f"{safe_board_name}_attachments")
+            
+            cards = data['cards'] # Ensure cards is available
             
             for i, card in enumerate(cards):
                 if card.get('closed', False):
@@ -272,8 +260,6 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
                 # Setup card directory
                 card_safe_name = "".join([c for c in card['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()[:50]
                 card_dir = os.path.join(attachments_dir, f"{card['id']}_{card_safe_name}")
-                
-                # Check for at least one new attachment before creating dir? No, create logic is fine.
                 
                 for att in attachments:
                     att_url = att['url']
@@ -296,12 +282,6 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
                     print(f"    Downloading {safe_filename} (Card: {card_safe_name})...")
                     trello_client.download_attachment(att_url, target_path)
 
-        # Save enriched backup
-        data['fetched_at'] = datetime.now().isoformat()
-        with open(backup_file, 'w') as f:
-            json.dump(data, f, indent=2)
-        print(f"  Backup saved to: {backup_file}")
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Trello JSON Backup & Verify")
@@ -313,3 +293,4 @@ if __name__ == "__main__":
 
     cfg = load_config()
     process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify, board_filter=args.board, download_attachments=args.download_attachments)
+

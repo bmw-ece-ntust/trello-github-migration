@@ -5,7 +5,9 @@ import time
 import os
 import sys
 import re
+import urllib.parse
 from datetime import datetime, timedelta
+from pcloud_client import PCloudClient
 
 # --- Configuration Loading ---
 def load_config(config_path="config.yaml"):
@@ -226,6 +228,28 @@ class GitHubClient:
             # It failed. Let's assume we can't use this label.
             return False
         return True
+
+    def get_repo_raw_url_base(self, repo_full_name):
+        try:
+             res = self.run_gh_cmd(["repo", "view", repo_full_name, "--json", "defaultBranchRef", "-q", ".defaultBranchRef.name"])
+             branch = res if res else "master"
+             # Use github.com/raw/ format which handles private repo auth redistribution better than raw.githubusercontent.com
+             return f"https://github.com/{repo_full_name}/raw/{branch}/"
+        except:
+             return f"https://github.com/{repo_full_name}/raw/master/"
+
+    def commit_files(self, file_paths, message="Upload attachments"):
+        if not file_paths: return True
+        try:
+            subprocess.run(["git", "add", "-f"] + file_paths, check=True, stdout=subprocess.DEVNULL)
+            subprocess.run(["git", "commit", "-m", message], stdout=subprocess.DEVNULL)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def push_changes(self):
+        print("      [Git] Pushing changes to remote to ensure links work...")
+        subprocess.run(["git", "push"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def create_issue(self, repo_full_name, title, body, labels):
         # Use REST API for better rate limit handling. GraphQL (gh issue create) swallows secondary rate limit errors.
@@ -879,9 +903,10 @@ def clear_project_data(config, board_filter=None):
         gh_client.reset_project_columns(target_url)
         print("  Board cleanup complete.")
 
-def process_backups(config, mode="all", board_filter=None):
+def process_backups(config, mode="all", board_filter=None, card_filter=None):
     # mode: 'migrate', 'all' (kept for compatibility, though strictly we only migrate now)
-    
+    # card_filter: URL or ShortLink to filter a specific card
+
     # NOTE: Backup creation and comment enrichment has been moved to 'trello-json.py'.
     # This script now focuses on the migration to GitHub using the existing JSON files.
     
@@ -1017,6 +1042,23 @@ def process_backups(config, mode="all", board_filter=None):
                 processed_count = 0
                 
                 for idx, card in enumerate(cards_in_list):
+                    # Filter by Card if requested
+                    if card_filter:
+                         # Extract ShortLink from URL or use as is
+                         target_short = card_filter
+                         if "/c/" in card_filter:
+                             parts = card_filter.split("/c/")
+                             if len(parts) > 1:
+                                 target_short = parts[1].split("/")[0]
+                         
+                         # Check ShortLink, ID, or literal URL
+                         c_short = card.get('shortLink', '')
+                         c_url = card.get('url', '')
+                         c_id = card.get('id', '')
+                         
+                         if target_short not in c_short and target_short not in c_url and target_short != c_id:
+                             continue
+
                     # Reduce API aggression to prevent rate limits
                     time.sleep(2.0)
                     print(f"    [{idx+1}/{len(cards_in_list)}] Card: {card['name']}")
@@ -1026,25 +1068,105 @@ def process_backups(config, mode="all", board_filter=None):
                         issue_data = existing_map[card['name']]
                         issue_url = issue_data['url']
                         issue_node_id = issue_data.get('id') # Global node ID usually, or REST id
-                        # We need Node ID for GraphQL batch add. 'id' in REST json usually is REST numeric ID or node_id? 
-                        # `gh issue list --json id` returns Node ID (e.g. I_kwDO...)
-                        
-                        print(f"      -> [Exists] Checking content. Link: {issue_url}")
-                        
-                        # Verify Comments
-                        trello_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
+                        if issue_node_id:
+                            # 1. Attachment Check & Upload
+                            safe_board_name = "".join([c for c in board['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()
+                            attachments_dir = os.path.join("back-ups", f"{safe_board_name}_attachments")
+                            card_safe_name = "".join([c for c in card['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()[:50]
+                            card_att_dir = os.path.join(attachments_dir, f"{card['id']}_{card_safe_name}")
+                            
+                            has_new_attachments = False
+                            attachments = card.get('attachments', [])
+                            
+                            if os.path.exists(card_att_dir) and attachments:
+                                # Prepare to sync
+                                repo_url_base = gh_client.get_repo_raw_url_base(target_repo)
+                                files_to_commit = []
+                                missing_attachments = []
+                                
+                                for att in attachments:
+                                    att_id = att['id']
+                                    att_name = att['name']
+                                    safe_filename = "".join([c for c in att_name if c.isalnum() or c in ('.', '-', '_', ' ')]).strip()
+                                    if not safe_filename: safe_filename = f"attachment_{att_id}"
+                                    
+                                    local_path = os.path.join(card_att_dir, f"{att_id}_{safe_filename}")
+                                    
+                                    if os.path.exists(local_path):
+                                        files_to_commit.append(local_path)
+                                        # URL to this file in repo
+                                        # GitHub Raw URL structure: https://raw.githubusercontent.com/USER/REPO/BRANCH/PATH
+                                        # We need to construct PATH relative to repo root
+                                        # Assuming we are at root
+                                        repo_path = local_path.replace("\\", "/")
+                                        # Escape spaces in URL
+                                        repo_path_url = repo_path.replace(" ", "%20")
+                                        
+                                        web_url = f"{repo_url_base}{repo_path_url}"
+                                        
+                                        # Check if this attachment is linked in the Issue Body or Comments
+                                        # We check for filename OR the specific raw URL
+                                        
+                                        # Fetch ALL comments + Body again if needed, but we have `gh_details` below.
+                                        # Let's move this logic inside the `if trello_comments:` block or fetch explicitly.
+                                        # We actually need to fetch now since we are outside that block? 
+                                        # Existing structure fetches later. Let's merge.
+                                        pass 
+                                
+                                if files_to_commit:
+                                    print(f"      [Attachments] Found {len(files_to_commit)} local files. Committing...")
+                                    gh_client.commit_files(files_to_commit)
+                                    has_new_attachments = True
+
+                            # Verify Comments (and Attachments within)
+                            trello_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
                         # Sort by date ascending (oldest first)
                         trello_comments.sort(key=lambda x: x['date'])
                         
-                        if trello_comments:
-                            # Fetch current GH comments
-                            gh_details = gh_client.get_issue_comments(issue_url)
+                        # Fetch current GH comments (needed for both comment check and attachment check)
+                        gh_details = gh_client.get_issue_comments(issue_url)
+                        
+                        if gh_details:
+                            gh_comments_text = [c['body'].strip() for c in gh_details.get('comments', [])]
+                            gh_body = (gh_details.get('body', '') or '').strip()
+                            all_gh_text = gh_body + "\n".join(gh_comments_text)
                             
-                            if gh_details:
-                                gh_comments_text = [c['body'].strip() for c in gh_details.get('comments', [])]
-                                # Also check body in case it was migrated there (old logic)
-                                gh_body = (gh_details.get('body', '') or '').strip()
+                            # --- Attachment Synchronization ---
+                            if has_new_attachments and attachments:
+                                repo_url_base = gh_client.get_repo_raw_url_base(target_repo)
+                                attachments_to_add = []
                                 
+                                for att in attachments:
+                                    att_id = att['id']
+                                    att_name = att['name']
+                                    safe_filename = "".join([c for c in att_name if c.isalnum() or c in ('.', '-', '_', ' ')]).strip()
+                                    if not safe_filename: safe_filename = f"attachment_{att_id}"
+                                    
+                                    local_path = os.path.join(card_att_dir, f"{att_id}_{safe_filename}")
+                                    repo_path = local_path.replace("\\", "/").replace(" ", "%20")
+                                    raw_url = f"{repo_url_base}{repo_path}"
+                                    
+                                    # Check if present in ANY text
+                                    # We check for the filename or the original Trello URL (if we want to replace? Replacement is hard via API, so we just append if missing)
+                                    # If the user asks for "uploaded missing images on specific comments", it implies context.
+                                    # But since we don't know the context, we ensure the image is at least present.
+                                    
+                                    if safe_filename in all_gh_text or att_name in all_gh_text:
+                                        # Likely already there
+                                        continue
+                                    
+                                    # Formatting: if image, use ![...], else [...]
+                                    is_image = att_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'))
+                                    
+                                    md_link = f"![{att_name}]({raw_url})" if is_image else f"[{att_name}]({raw_url})"
+                                    attachments_to_add.append(md_link)
+                                
+                                if attachments_to_add:
+                                    print(f"      [Attachments] Adding {len(attachments_to_add)} missing attachments to issue...")
+                                    att_comment = "**Migrated Attachments**:\n" + "\n".join(attachments_to_add)
+                                    gh_client.add_comment(issue_url, att_comment)
+                            
+                            if trello_comments:
                                 missing_comments = []
                                 
                                 for tc in trello_comments:
@@ -1066,6 +1188,9 @@ def process_backups(config, mode="all", board_filter=None):
                                     header = f"**{author}**"
                                     if username: header += f" (@{username})"
                                     header += f" on {date_full}"
+                                    
+                                    # OPTIONAL: Inject Attachment Links if this specific comment mentions them?
+                                    # (Trello API doesn't link comments to attachments strongly, usually text is just text)
                                     
                                     expected_block = f"> {header}:\n> {text}"
                                     
@@ -1106,8 +1231,8 @@ def process_backups(config, mode="all", board_filter=None):
                                              time.sleep(1)
                                 else:
                                     print(f"      [Checker] All {len(trello_comments)} Trello comments verified present.")
-                            else:
-                                print("      [Checker] Failed to fetch issue details. Skipping verification.")
+                        else: # End of if gh_details
+                             print("      [Checker] Failed to fetch issue details. Skipping verification.")
 
                     else:
                         # Create Issue
@@ -1145,6 +1270,84 @@ def process_backups(config, mode="all", board_filter=None):
                         # comments_section removed from body to avoid limits, migrating as separate comments
                         
                         body = f"{desc}\n\n---\n*Imported from Trello List: {list_name}*"
+
+                        # --- New Issue Attachment Handling ---
+                        # Check for local attachments to upload
+                        safe_board_name = "".join([c for c in board['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()
+                        attachments_dir = os.path.join("back-ups", f"{safe_board_name}_attachments")
+                        card_safe_name = "".join([c for c in card['name'] if c.isalnum() or c in (' ', '-', '_')]).strip()[:50]
+                        card_att_dir = os.path.join(attachments_dir, f"{card['id']}_{card_safe_name}")
+                        
+                        attachments = card.get('attachments', [])
+                        
+                        # Init pCloud if enabled
+                        pcloud_conf = config.get('tokens', {}).get('pcloud', {})
+                        pcloud_enabled = pcloud_conf.get('enabled', False)
+                        pcloud_client = None
+                        pcloud_folder_id = 0
+                        
+                        if pcloud_enabled and os.path.exists(card_att_dir) and attachments:
+                            token = pcloud_conf.get('access_token')
+                            if not token or token == "YOUR_PCLOUD_ACCESS_TOKEN":
+                                print(f"      [pCloud] Warning: Enabled but invalid token. Falling back to GitHub storage.")
+                                pcloud_enabled = False
+                            else:
+                                try:
+                                    pcloud_client = PCloudClient(token)
+                                    # Get/Create root folder
+                                    folder_name = pcloud_conf.get('folder_name', 'Trello_Import')
+                                    # Create/Get root folder first
+                                    pcloud_root_id = pcloud_client.create_folder_if_not_exists(folder_name)
+                                    # Create Board folder
+                                    pcloud_folder_id = pcloud_client.create_folder_if_not_exists(safe_board_name, pcloud_root_id)
+                                    print(f"      [pCloud] Initialized. Uploading to: {folder_name}/{safe_board_name}")
+                                except Exception as e:
+                                    print(f"      [pCloud] Initialization failed: {e}. Fallback to GitHub.")
+                                    pcloud_enabled = False
+
+                        if os.path.exists(card_att_dir) and attachments:
+                            repo_url_base = gh_client.get_repo_raw_url_base(target_repo)
+                            files_to_commit = []
+                            att_links = []
+                            
+                            for att in attachments:
+                                att_id = att['id']
+                                att_name = att['name']
+                                safe_filename = "".join([c for c in att_name if c.isalnum() or c in ('.', '-', '_', ' ')]).strip()
+                                if not safe_filename: safe_filename = f"attachment_{att_id}"
+                                
+                                local_path = os.path.join(card_att_dir, f"{att_id}_{safe_filename}")
+                                
+                                if os.path.exists(local_path):
+                                    link_url = ""
+                                    
+                                    if pcloud_enabled and pcloud_client:
+                                        print(f"      [pCloud] Uploading {safe_filename}...", end="", flush=True)
+                                        fid = pcloud_client.upload_file(local_path, pcloud_folder_id)
+                                        if fid:
+                                            link_url = pcloud_client.get_public_link(fid)
+                                            print(f" Done. (Link: {link_url})")
+                                        else:
+                                            print(" Failed.")
+                                    
+                                    if not link_url:
+                                        files_to_commit.append(local_path)
+                                        repo_path = local_path.replace("\\", "/")
+                                        # Use proper URL encoding, preserving slashes
+                                        encoded_path = urllib.parse.quote(repo_path)
+                                        raw_url = f"{repo_url_base}{encoded_path}"
+                                        link_url = raw_url
+                                    
+                                    is_image = att_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.heic'))
+                                    md_link = f"![{att_name}]({link_url})" if is_image else f"[{att_name}]({link_url})"
+                                    att_links.append(md_link)
+                            
+                            if files_to_commit:
+                                print(f"      [Attachments] Uploading {len(files_to_commit)} files for new issue...")
+                                gh_client.commit_files(files_to_commit)
+                            
+                            if att_links:
+                                body += "\n\n**Attachments**:\n" + "\n".join(att_links)
                         
                         # Labels
                         final_labels = ["Trello Import"]
@@ -1248,12 +1451,17 @@ def process_backups(config, mode="all", board_filter=None):
                      print(f"    -> Check Column here: {target_url}?filterQuery=status%3A%22{list_name.replace(' ', '+')}%22")
                 else: 
                      print(f"    -> Link to Project: {target_url}")
+            
+            # End of Board Processing
+            # Push any committed attachments
+            gh_client.push_changes()
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Trello to GitHub Migration")
     parser.add_argument("command", choices=["migrate", "all", "clear"], help="Command to run")
     parser.add_argument("--board", help="Filter by board name (case-insensitive substring match)")
+    parser.add_argument("--card", help="Filter by Card URL or ShortLink")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -1263,5 +1471,5 @@ if __name__ == "__main__":
         clear_project_data(cfg, board_filter=args.board)
     else:
         # Note: We do NOT clear automatically anymore as per robust update request
-        process_backups(cfg, mode=args.command, board_filter=args.board)
+        process_backups(cfg, mode=args.command, board_filter=args.board, card_filter=args.card)
 
