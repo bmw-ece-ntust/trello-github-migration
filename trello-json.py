@@ -31,7 +31,8 @@ class TrelloClient:
         
         while True:
             try:
-                response = requests.request(method, url, params=params)
+                # Timeout avoids hanging forever on a single card fetch
+                response = requests.request(method, url, params=params, timeout=60)
                 
                 if response.status_code == 401:
                      print("\n  [Trello Error] 401 Unauthorized. Please check your API Key and Token.")
@@ -116,7 +117,35 @@ def get_backup_path(board):
     filename = f"{board['id']} - {safe_name}.json"
     return os.path.join("back-ups", filename)
 
-def process_backups(config, force_refresh=False, skip_verify=False, board_filter=None, download_attachments=False):
+
+def _save_backup_safely(path, data):
+    # Atomic-ish write (best-effort) to reduce risk of partial JSON
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, 'w') as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, path)
+
+
+def _build_actions_by_card(global_actions):
+    actions_by_card = {}
+    for a in global_actions or []:
+        try:
+            if 'card' in a.get('data', {}) and 'id' in a['data']['card']:
+                cid = a['data']['card']['id']
+                actions_by_card.setdefault(cid, []).append(a)
+        except Exception:
+            continue
+    return actions_by_card
+
+def process_backups(
+    config,
+    force_refresh=False,
+    skip_verify=False,
+    board_filter=None,
+    download_attachments=False,
+    full_verify=False,
+    save_every=20,
+):
     trello_conf = config['tokens']['trello']
     trello_client = None
     if trello_conf['api_key'] and trello_conf['api_key'] != "YOUR_TRELLO_API_KEY":
@@ -133,111 +162,112 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
         
         backup_file = get_backup_path(board)
         
-        # 1. Fetch or Load
-        data = None
-        if os.path.exists(backup_file) and not force_refresh:
+        # 1. Load existing backup (if any)
+        previous = None
+        if os.path.exists(backup_file):
             print(f"  Found local backup: {backup_file}")
             with open(backup_file, 'r') as f:
-                data = json.load(f)
-                
-            fetched_at = data.get('fetched_at')
+                previous = json.load(f)
+
+            fetched_at = previous.get('fetched_at')
             if fetched_at:
                 print(f"  Backup Timestamp: {fetched_at}")
             else:
                 print("  Backup Timestamp: Unknown (Old format)")
-                
-        else:
-            if force_refresh:
-                print("  Force refresh requested.")
-            else:
-                print("  No backup found.")
-                
-            print("  Fetching fresh data from Trello...")
-            data = trello_client.get_board_data(board['id'])
-            # Save it initial version
-            os.makedirs(os.path.dirname(backup_file) if os.path.dirname(backup_file) else '.', exist_ok=True)
-            with open(backup_file, 'w') as f:
-                json.dump(data, f, indent=2)
-            print("  Initial data saved.")
+
+        if force_refresh:
+            print("  Refresh requested (fetching latest board snapshot)...")
+
+        # Always fetch a fresh board snapshot to detect what changed.
+        # This snapshot may not contain *all* comments; we enrich changed cards below.
+        print("  Fetching board snapshot from Trello...")
+        data = trello_client.get_board_data(board['id'])
+
+        # Merge old comment history for unchanged cards (incremental)
+        prev_cards_by_id = {c.get('id'): c for c in (previous.get('cards', []) if previous else [])}
 
         if skip_verify:
             print("  Skipping comment verification (--skip-verify).")
             # We must map global actions to cards if not done
             cards = data['cards']
-            global_actions = data.get('actions', [])
-            actions_by_card = {}
-            for a in global_actions:
-                if 'card' in a['data'] and 'id' in a['data']['card']:
-                    cid = a['data']['card']['id']
-                    if cid not in actions_by_card: actions_by_card[cid] = []
-                    actions_by_card[cid].append(a)
-            
+            actions_by_card = _build_actions_by_card(data.get('actions', []))
             for card in cards:
                 if 'actions' not in card:
-                    card['actions'] = actions_by_card.get(card['id'], [])
-            
-            # Save just in case
-            with open(backup_file, 'w') as f:
-                json.dump(data, f, indent=2)
+                    card['actions'] = actions_by_card.get(card.get('id'), [])
+
+            data['fetched_at'] = datetime.now().isoformat()
+            _save_backup_safely(backup_file, data)
         
         # 2. Enrich Comment Data (Check completeness and map Global Actions to Cards)
         if not skip_verify:
             print("  Processing comments (mapping and verifying)...")
             cards = data['cards']
-            global_actions = data.get('actions', [])
-            
-            # Helper: Group global actions by card
-            actions_by_card = {}
-            for a in global_actions:
-                if 'card' in a['data'] and 'id' in a['data']['card']:
-                    cid = a['data']['card']['id']
-                    if cid not in actions_by_card: actions_by_card[cid] = []
-                    actions_by_card[cid].append(a)
+            actions_by_card = _build_actions_by_card(data.get('actions', []))
             
             updated_count = 0
             
-            for i, card in enumerate(cards):
-                if card.get('closed', False):
-                    continue
+            try:
+                for i, card in enumerate(cards):
+                    if card.get('closed', False):
+                        continue
                 
-                # Progress
-                current_comments = [a for a in card.get('actions', []) if a['type'] == 'commentCard']
-                
-                if i % 10 == 0:
-                    print(f"\r    Checking card [{i+1}/{len(cards)}] ({len(current_comments)} comments)...", end="", flush=True)
+                    # Progress
+                    if i % 10 == 0:
+                        current_comments = [a for a in card.get('actions', []) if a.get('type') == 'commentCard']
+                        print(f"\r    Checking card [{i+1}/{len(cards)}] ({len(current_comments)} comments)...", end="", flush=True)
 
-                # 1. Populate card['actions'] from global dump if missing
-                if 'actions' not in card:
-                    card['actions'] = actions_by_card.get(card['id'], [])
-                
-                # 2. Completeness Check
-                try:
-                    existing_comments_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
-                    full_comments = trello_client.get_card_comments(card['id'])
-                    
-                    other_actions = [a for a in card.get('actions', []) if a['type'] != 'commentCard']
-                    
-                    if len(full_comments) > existing_comments_count:
-                         updated_count += 1
-                         card['actions'] = other_actions + full_comments
-                    elif len(full_comments) < existing_comments_count:
-                         card['actions'] = other_actions + full_comments
+                    card_id = card.get('id')
+                    prev_card = prev_cards_by_id.get(card_id)
+
+                    # 1) Non-comment actions from board snapshot
+                    snapshot_actions = actions_by_card.get(card_id, [])
+                    snapshot_other_actions = [a for a in snapshot_actions if a.get('type') != 'commentCard']
+
+                    # 2) Decide whether this card needs a full comment refresh
+                    snapshot_last_activity = card.get('dateLastActivity')
+                    prev_last_activity = prev_card.get('dateLastActivity') if prev_card else None
+                    has_prev_comments = bool(prev_card and prev_card.get('actions'))
+                    needs_full = full_verify or (not has_prev_comments) or (snapshot_last_activity and snapshot_last_activity != prev_last_activity)
+
+                    if needs_full:
+                        try:
+                            full_comments = trello_client.get_card_comments(card_id)
+                        except Exception as e:
+                            print(f"\n    Failed to fetch comments for {card.get('name')}: {e}")
+                            # Fall back to previous comments if available
+                            full_comments = [a for a in (prev_card.get('actions', []) if prev_card else []) if a.get('type') == 'commentCard']
+
+                        prev_comments_count = len([a for a in (prev_card.get('actions', []) if prev_card else []) if a.get('type') == 'commentCard'])
+                        if len(full_comments) != prev_comments_count:
+                            updated_count += 1
+                            if len(full_comments) > prev_comments_count:
+                                print(f"\r    Checking card [{i+1}/{len(cards)}] - Updated Comments: {prev_comments_count} -> {len(full_comments)}")
+
+                        card['actions'] = snapshot_other_actions + full_comments
+                        card['comments_verified_at'] = datetime.now().isoformat()
                     else:
-                         card['actions'] = other_actions + full_comments
-                    
-                    final_count = len([a for a in card['actions'] if a['type'] == 'commentCard'])
-                    if final_count > existing_comments_count:
-                        print(f"\r    Checking card [{i+1}/{len(cards)}] - Updated Comments: {existing_comments_count} -> {final_count}")
+                        # Keep previous full comment history for unchanged cards
+                        prev_comments = [a for a in (prev_card.get('actions', []) if prev_card else []) if a.get('type') == 'commentCard']
+                        card['actions'] = snapshot_other_actions + prev_comments
+                        if prev_card and prev_card.get('comments_verified_at'):
+                            card['comments_verified_at'] = prev_card.get('comments_verified_at')
 
-                except Exception as e:
-                    print(f" Failed to fetch comments for {card['name']}: {e}")
+                    # Periodic saves so Ctrl+C doesn't lose hours
+                    if save_every and (i + 1) % int(save_every) == 0:
+                        data['fetched_at'] = datetime.now().isoformat()
+                        _save_backup_safely(backup_file, data)
+                        print(f"\n    [Save] Progress saved ({i+1}/{len(cards)} cards).")
+            except KeyboardInterrupt:
+                print("\n\n  [Interrupted] Saving partial backup before exit...")
+                data['fetched_at'] = datetime.now().isoformat()
+                _save_backup_safely(backup_file, data)
+                raise
             
             print(f"\n  Verified comments for {len(cards)} cards (Updated missing: {updated_count}).")
             
             # Save enriched backup
             data['fetched_at'] = datetime.now().isoformat()
-            with open(backup_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            _save_backup_safely(backup_file, data)
             print(f"  Backup saved to: {backup_file}")
         
         # --- Attachment Downloading ---
@@ -287,10 +317,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Trello JSON Backup & Verify")
     parser.add_argument("--refresh", action="store_true", help="Force download fresh data from Trello")
     parser.add_argument("--skip-verify", action="store_true", help="Skip individual comment verification (faster)")
+    parser.add_argument("--full-verify", action="store_true", help="Fetch full comments for every non-closed card (slowest, safest)")
+    parser.add_argument("--save-every", type=int, default=20, help="Persist progress every N cards during verification (default: 20)")
     parser.add_argument("--download-attachments", action="store_true", help="Download all attachments (images/slides) to local folder")
     parser.add_argument("--board", help="Filter by board name (case-insensitive substring match)")
     args = parser.parse_args()
 
     cfg = load_config()
-    process_backups(cfg, force_refresh=args.refresh, skip_verify=args.skip_verify, board_filter=args.board, download_attachments=args.download_attachments)
+    process_backups(
+        cfg,
+        force_refresh=args.refresh,
+        skip_verify=args.skip_verify,
+        board_filter=args.board,
+        download_attachments=args.download_attachments,
+        full_verify=args.full_verify,
+        save_every=args.save_every,
+    )
 

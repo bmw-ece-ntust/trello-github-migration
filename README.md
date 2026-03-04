@@ -11,6 +11,10 @@ This tool facilitates the migration of Trello boards to GitHub Issues and Projec
 *   **Timezone Adjustment**: Converts timestamps to Taiwan GMT+8.
 *   **Rate Limit Handling**: Smart retries and GraphQL quota management.
 
+## 📚 Documentation
+
+Detailed per-feature logic + Mermaid flowcharts live in [docs/README.md](docs/README.md).
+
 ## 🛠 Prerequisites
 
 *   **Python 3.8+**

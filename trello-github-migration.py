@@ -6,7 +6,9 @@ import os
 import sys
 import re
 import urllib.parse
-from datetime import datetime, timedelta
+import shutil
+from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta, timezone
 from pcloud_client import PCloudClient
 
 # --- Configuration Loading ---
@@ -33,11 +35,8 @@ class GitHubClient:
 
     def run_gh_cmd(self, args, max_retries=10, input_text=None):
         delay = 5
-        # Try finding gh in standard paths if not in PATH
-        gh_cmd = "gh"
-        if not subprocess.run(["where", "gh"], capture_output=True, shell=True).returncode == 0:
-             if os.path.exists("C:\\Program Files\\GitHub CLI\\gh.exe"):
-                 gh_cmd = "C:\\Program Files\\GitHub CLI\\gh.exe"
+        # Find gh in PATH in a cross-platform, non-blocking way
+        gh_cmd = shutil.which("gh") or "gh"
         
         for attempt in range(max_retries):
             try:
@@ -112,6 +111,77 @@ class GitHubClient:
                 return None
         else:
             return None
+
+    @staticmethod
+    def parse_issue_url(issue_url: str) -> Optional[Tuple[str, str, int]]:
+        # Supports:
+        # - https://github.com/<owner>/<repo>/issues/<n>
+        # - https://github.com/<owner>/<repo>/issues/<n>#...
+        m = re.search(r"github\.com/([^/]+)/([^/]+)/issues/(\d+)", issue_url)
+        if not m:
+            return None
+        return m.group(1), m.group(2), int(m.group(3))
+
+    @staticmethod
+    def repo_from_url(repo_url: str) -> str:
+        # Accepts 'owner/repo' or 'https://github.com/owner/repo'
+        if re.match(r"^[^/]+/[^/]+$", repo_url):
+            return repo_url
+        m = re.search(r"github\.com/([^/]+)/([^/#?]+)", repo_url)
+        if not m:
+            raise ValueError(f"Could not parse repo from: {repo_url}")
+        return f"{m.group(1)}/{m.group(2)}"
+
+    def gh_api(self, endpoint: str, method: str = "GET", fields: Optional[Dict[str, str]] = None, paginate: bool = False):
+        # Use `gh api` to access REST endpoints (better metadata and pagination).
+        args = ["api"]
+        if paginate:
+            args.append("--paginate")
+        args.append(endpoint)
+        args += ["--method", method]
+        if fields:
+            for k, v in fields.items():
+                args += ["-f", f"{k}={v}"]
+        out = self.run_gh_cmd(args)
+        if not out:
+            return None
+        try:
+            return json.loads(out)
+        except json.JSONDecodeError:
+            # Some `gh api` calls can return non-JSON on error; caller should handle None.
+            return None
+
+    def get_issue_rest(self, repo: str, number: int) -> Optional[Dict[str, Any]]:
+        return self.gh_api(f"repos/{repo}/issues/{number}")
+
+    def list_issue_comments_rest(self, repo: str, number: int) -> List[Dict[str, Any]]:
+        # GitHub REST comments are paginated; `--paginate` returns a JSON array
+        res = self.gh_api(f"repos/{repo}/issues/{number}/comments?per_page=100", paginate=True)
+        if isinstance(res, list):
+            return res
+        return []
+
+    def create_issue_comment_rest(self, repo: str, number: int, body: str) -> Optional[Dict[str, Any]]:
+        return self.gh_api(
+            f"repos/{repo}/issues/{number}/comments",
+            method="POST",
+            fields={"body": _strip_leading_blockquote_markers(body)},
+        )
+
+    def update_issue_body_rest(self, repo: str, number: int, body: str) -> Optional[Dict[str, Any]]:
+        return self.gh_api(f"repos/{repo}/issues/{number}", method="PATCH", fields={"body": body})
+
+    def update_issue_comment_rest(self, repo: str, comment_id: int, body: str) -> Optional[Dict[str, Any]]:
+        return self.gh_api(
+            f"repos/{repo}/issues/comments/{comment_id}",
+            method="PATCH",
+            fields={"body": _strip_leading_blockquote_markers(body)},
+        )
+
+    def delete_issue_comment_rest(self, repo: str, comment_id: int) -> bool:
+        out = self.run_gh_cmd(["api", f"repos/{repo}/issues/comments/{comment_id}", "--method", "DELETE"])
+        # gh api returns empty output on success for DELETE
+        return out is not None
 
     def ensure_project_status_options(self, project_node_id, status_field_id, new_options):
         # 1. Fetch current options with full details
@@ -289,7 +359,7 @@ class GitHubClient:
             mutation_parts = []
             for j, comment_body in enumerate(chunk):
                 # json.dumps ensures the string is properly escaped for GraphQL
-                safe_body = json.dumps(comment_body)
+                safe_body = json.dumps(_strip_leading_blockquote_markers(comment_body))
                 mutation_parts.append(f'c{j}: addComment(input: {{subjectId: "{issue_node_id}", body: {safe_body}}}) {{ clientMutationId }}')
             
             query = "mutation { " + " ".join(mutation_parts) + " }"
@@ -1456,19 +1526,1104 @@ def process_backups(config, mode="all", board_filter=None, card_filter=None):
             # Push any committed attachments
             gh_client.push_changes()
 
+
+def audit_project(config, board_filter=None, card_or_issue=None, days_active=90):
+    """Compare Trello backup vs GitHub Issues and write an audit JSON of cards to fix."""
+    tmp_dir = _ensure_tmp_dir()
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = os.path.join(tmp_dir, f"audit_{(board_filter or 'all')}_{ts}.json")
+
+    gh_conf = config.get('tokens', {}).get('github', {})
+    gh_client = GitHubClient(gh_conf.get('token'))
+
+    results = {
+        "generated_at": datetime.now().isoformat(),
+        "board_filter": board_filter,
+        "items": [],
+        "active_trello_cards": [],
+    }
+
+    target_issue = None
+    if card_or_issue and "github.com" in str(card_or_issue) and "/issues/" in str(card_or_issue):
+        target_issue = GitHubClient.parse_issue_url(str(card_or_issue))
+
+    for board in config.get('trello_boards', []):
+        if board_filter and board_filter.lower() not in board.get('name', '').lower():
+            continue
+
+        backup_file = get_backup_path(board)
+        if not os.path.exists(backup_file):
+            print(f"  [Audit] Missing backup: {backup_file}. Run trello-json.py first.")
+            continue
+
+        with open(backup_file, 'r') as f:
+            data = json.load(f)
+
+        # Who is still active on Trello recently?
+        results["active_trello_cards"].extend(_extract_recent_trello_students(data, days=days_active))
+
+        target_url, target_repo_url = get_gh_config(board)
+        if not target_repo_url:
+            print(f"  [Audit] No GitHub repo configured for board: {board.get('name')}")
+            continue
+        repo = GitHubClient.repo_from_url(target_repo_url)
+
+        # If auditing a single GitHub issue URL, avoid listing all issues (saves API calls).
+        issue_title_by_number: Dict[int, str] = {}
+        existing_map = {}
+        if target_issue:
+            towner, trepo, tnum = target_issue
+            target_repo_full = f"{towner}/{trepo}"
+            if repo != target_repo_full:
+                continue
+            issue_rest = gh_client.get_issue_rest(target_repo_full, int(tnum))
+            if not issue_rest:
+                continue
+            if issue_rest.get('title'):
+                issue_title_by_number[int(tnum)] = issue_rest.get('title')
+        else:
+            # Build quick lookup by title (bulk audit)
+            existing_issues = gh_client.get_existing_issues(repo)
+            existing_map = {i['title']: i for i in existing_issues}
+
+        lists_map = {l.get('id'): l.get('name') for l in (data.get('lists', []) or [])}
+
+        for card in data.get('cards', []) or []:
+            if card.get('closed'):
+                continue
+
+            if card_or_issue and not target_issue:
+                sl = _parse_trello_card_url(str(card_or_issue))
+                if sl and card.get('shortLink') != sl:
+                    continue
+
+            title = card.get('name')
+            if target_issue:
+                # For single-issue audit, match Trello card title to the target issue title.
+                towner, trepo, tnum = target_issue
+                repo_full = f"{towner}/{trepo}"
+                number = int(tnum)
+                issue_title = issue_title_by_number.get(number)
+                if not issue_title or title != issue_title:
+                    continue
+                issue_rest = gh_client.get_issue_rest(repo_full, number)
+            else:
+                issue = existing_map.get(title)
+                if not issue:
+                    continue
+                issue_url = issue.get('url')
+                parsed = GitHubClient.parse_issue_url(issue_url) if issue_url else None
+                if not parsed:
+                    continue
+                owner, repo_name, number = parsed
+                repo_full = f"{owner}/{repo_name}"
+                issue_rest = gh_client.get_issue_rest(repo_full, number)
+
+            if not issue_rest:
+                continue
+            gh_comments = gh_client.list_issue_comments_rest(repo_full, number)
+
+            trello_actions = [a for a in (card.get('actions', []) or []) if a.get('type') == 'commentCard']
+            trello_actions.sort(key=lambda a: a.get('date') or '')
+            trello_count = len(trello_actions)
+
+            list_name = lists_map.get(card.get('idList'), "")
+
+            # Count imported trello blocks in GH comments (collisions happen when a single GH comment contains >1 header)
+            gh_import_comment_count = 0
+            collided_comment_ids = []
+            incomplete_date_comment_ids = []
+            has_any_non_import = False
+            non_import_comment_count = 0
+            non_import_latest_created_at = None
+            non_import_authors = set()
+            for c in gh_comments:
+                body = c.get('body') or ''
+                normalized = _strip_leading_blockquote_markers(body)
+                if not _is_probably_trello_import_comment(normalized):
+                    if body.strip():
+                        has_any_non_import = True
+                        non_import_comment_count += 1
+                        created = _parse_iso8601(c.get('created_at'))
+                        if created and (not non_import_latest_created_at or created > non_import_latest_created_at):
+                            non_import_latest_created_at = created
+                        user = (c.get('user') or {}).get('login')
+                        if user:
+                            non_import_authors.add(user)
+                    continue
+                header_count = _count_trello_headers_in_gh_comment(normalized)
+                if header_count >= 1:
+                    gh_import_comment_count += header_count
+                if header_count > 1:
+                    collided_comment_ids.append(c.get('id'))
+                # Incomplete date/header formatting (legacy / broken quote)
+                if "(Taiwan GMT+8)" in normalized and not _TRELLO_HEADER_RE.search(normalized):
+                    incomplete_date_comment_ids.append(c.get('id'))
+
+            bugs = []
+            if gh_import_comment_count < trello_count:
+                bugs.append("missing_comments")
+            if collided_comment_ids:
+                bugs.append("collided_batched_comments")
+            if incomplete_date_comment_ids:
+                bugs.append("incomplete_dates")
+
+            # Guard: don't touch issues with newer non-import activity than Trello last activity
+            trello_last = _trello_latest_activity(card)
+            issue_updated = _parse_iso8601(issue_rest.get('updated_at'))
+            has_non_import_newer = False
+            if trello_last:
+                for c in gh_comments:
+                    if _is_probably_trello_import_comment(_strip_leading_blockquote_markers(c.get('body') or '')):
+                        continue
+                    created = _parse_iso8601(c.get('created_at'))
+                    if created and created > trello_last:
+                        has_non_import_newer = True
+                        break
+
+            safe_to_sync = (not has_non_import_newer)
+            if not safe_to_sync and bugs:
+                bugs.append("skipped_active_users")
+
+            if bugs:
+                results["items"].append({
+                    "board": board.get('name'),
+                    "repo": repo_full,
+                    "issue_number": number,
+                    "issue_url": issue_rest.get('html_url'),
+                    "trello_card_url": card.get('url'),
+                    "trello_shortLink": card.get('shortLink'),
+                    "bugs": bugs,
+                    "stats": {
+                        "trello_comment_count": trello_count,
+                        "github_imported_comment_blocks": gh_import_comment_count,
+                        "collided_comment_ids": [cid for cid in collided_comment_ids if cid],
+                        "incomplete_date_comment_ids": [cid for cid in incomplete_date_comment_ids if cid],
+                        "has_any_non_import_comment": has_any_non_import,
+                        "non_import_comment_count": non_import_comment_count,
+                        "non_import_latest_created_at": non_import_latest_created_at.isoformat() if non_import_latest_created_at else None,
+                        "non_import_authors": sorted(non_import_authors),
+                        "non_import_newer_than_trello": has_non_import_newer,
+                    },
+                    "safe_to_sync": safe_to_sync,
+                    "trello_last_activity": card.get('dateLastActivity'),
+                    "github_issue_updated_at": issue_rest.get('updated_at'),
+                    "trello_list_name": list_name,
+                })
+
+            # If the user asked for a single issue URL, stop after finding it
+            if target_issue and results["items"]:
+                break
+
+        if target_issue and results["items"]:
+            break
+
+    _save_json = json.dumps(results, indent=2)
+    with open(report_path, 'w') as f:
+        f.write(_save_json)
+    print(f"\n[Audit] Wrote report: {report_path}")
+    print(f"[Audit] Findings: {len(results['items'])} issue(s) need attention")
+    return report_path
+
+
+def sync_from_audit(
+    config,
+    audit_file=None,
+    card_or_issue=None,
+    dry_run=False,
+    allow_active=False,
+    fresh_reset=False,
+    confirm_fresh_reset=False,
+    batch_pause_seconds: int = 10,
+    delete_batch_size: int = 50,
+    fresh_reset_from_backup: Optional[str] = None,
+):
+    """Fix issues flagged in an audit file, or fix a single card/issue URL."""
+    gh_conf = config.get('tokens', {}).get('github', {})
+    gh_client = GitHubClient(gh_conf.get('token'))
+
+    # Destructive mode: supported for a single GitHub issue URL OR an audit file (bulk).
+    if fresh_reset:
+        comment_batch_size = int((config.get('options', {}) or {}).get('comment_batch_size', 50) or 50)
+        if audit_file:
+            if not os.path.exists(audit_file):
+                print(f"[FreshReset] Missing audit file: {audit_file}")
+                return False
+            if not confirm_fresh_reset:
+                print("[FreshReset] Refusing to proceed without --confirm-fresh-reset (this will permanently delete all current comments on the issue(s)).")
+                return False
+
+            with open(audit_file, 'r') as f:
+                report = json.load(f)
+            items = report.get('items', []) or []
+            if not items:
+                print("[FreshReset] No items to process in audit file.")
+                return True
+
+            targets = [
+                it for it in items
+                if ('missing_comments' in (it.get('bugs') or []))
+                and (bool(it.get('safe_to_sync')) or bool(allow_active))
+            ]
+            print(f"[FreshReset] Bulk targets (missing_comments): {len(targets)}/{len(items)}")
+
+            ok_all = True
+            for it in targets:
+                repo = it.get('repo')
+                number = int(it.get('issue_number') or 0)
+                sl = it.get('trello_shortLink')
+                if not repo or not number:
+                    ok_all = False
+                    continue
+                ok_one = _fresh_reset_issue(
+                    config,
+                    gh_client,
+                    repo,
+                    int(number),
+                    dry_run=bool(dry_run),
+                    create_batch_size=int(comment_batch_size),
+                    delete_batch_size=int(delete_batch_size),
+                    batch_pause_seconds=int(batch_pause_seconds),
+                    confirm=True,
+                    trello_shortlink=sl,
+                )
+                ok_all = ok_all and bool(ok_one)
+            return ok_all
+        if not card_or_issue or ("github.com" not in str(card_or_issue)) or ("/issues/" not in str(card_or_issue)):
+            print("[FreshReset] Requires --url with a GitHub issue URL.")
+            return False
+        if fresh_reset_from_backup:
+            return _fresh_reset_issue_from_backup(
+                config,
+                gh_client,
+                fresh_reset_from_backup,
+                dry_run=bool(dry_run),
+                create_batch_size=int(comment_batch_size),
+                delete_batch_size=int(delete_batch_size),
+                batch_pause_seconds=int(batch_pause_seconds),
+                confirm=bool(confirm_fresh_reset),
+            )
+
+        parsed = GitHubClient.parse_issue_url(str(card_or_issue))
+        if not parsed:
+            print(f"[FreshReset] Could not parse issue URL: {card_or_issue}")
+            return False
+        owner, repo_name, number = parsed
+        repo_full = f"{owner}/{repo_name}"
+        return _fresh_reset_issue(
+            config,
+            gh_client,
+            repo_full,
+            int(number),
+            dry_run=bool(dry_run),
+            create_batch_size=int(comment_batch_size),
+            delete_batch_size=int(delete_batch_size),
+            batch_pause_seconds=int(batch_pause_seconds),
+            confirm=bool(confirm_fresh_reset),
+        )
+
+    if card_or_issue and not audit_file:
+        # Generate a single-item audit on the fly
+        audit_file = audit_project(config, board_filter=None, card_or_issue=card_or_issue)
+
+    if not audit_file or not os.path.exists(audit_file):
+        print("[Sync] Missing audit file. Run `audit` first or pass --url.")
+        return False
+
+    with open(audit_file, 'r') as f:
+        report = json.load(f)
+
+    items = report.get('items', []) or []
+    if not items:
+        print("[Sync] No items to fix.")
+        return True
+
+    # Load Trello backups for lookups
+    trello_by_short: Dict[str, Dict[str, Any]] = {}
+    for board in config.get('trello_boards', []) or []:
+        backup_file = get_backup_path(board)
+        if not os.path.exists(backup_file):
+            continue
+        with open(backup_file, 'r') as f:
+            data = json.load(f)
+        for card in data.get('cards', []) or []:
+            sl = card.get('shortLink')
+            if sl:
+                trello_by_short[sl] = {"board": board, "data": data, "card": card}
+
+    ok = True
+    planned = 0
+    executed = 0
+
+    # Maximum number of comments to CREATE per issue per run (to avoid rate limits).
+    comment_batch_size = int((config.get('options', {}) or {}).get('comment_batch_size', 50) or 50)
+
+    for it in items:
+        issue_url = it.get('issue_url')
+        bugs = it.get('bugs') or []
+        if not it.get('safe_to_sync') and not allow_active:
+            print(f"[Sync] Skip (active GitHub users newer than Trello): {issue_url}")
+            continue
+
+        repo = it.get('repo')
+        number = it.get('issue_number')
+        sl = it.get('trello_shortLink')
+        ctx = trello_by_short.get(sl)
+        if not ctx:
+            print(f"[Sync] Missing Trello context for shortLink={sl}. Skipping: {issue_url}")
+            ok = False
+            continue
+
+        card = ctx['card']
+        trello_actions = [a for a in (card.get('actions', []) or []) if a.get('type') == 'commentCard']
+        trello_actions.sort(key=lambda a: a.get('date') or '')
+
+        # Pull current GH state
+        gh_comments = gh_client.list_issue_comments_rest(repo, int(number))
+        has_non_import = any(
+            (c.get('body') or '').strip() and not _is_probably_trello_import_comment(_strip_leading_blockquote_markers(c.get('body') or ''))
+            for c in gh_comments
+        )
+
+        wants_rebuild = any(b in bugs for b in ("collided_batched_comments", "incomplete_dates"))
+        can_rebuild = wants_rebuild and not has_non_import
+        skipped_rebuild_reason = None
+        if wants_rebuild and has_non_import:
+            skipped_rebuild_reason = "issue has non-import comments"
+
+        # If users continued on GitHub, do not attempt rebuild-by-delete; only backfill missing comments.
+        # This preserves user-authored comments and their timestamps.
+        if has_non_import and wants_rebuild:
+            can_rebuild = False
+
+        gh_comments_text = "\n".join([_strip_leading_blockquote_markers(c.get('body') or "") for c in gh_comments])
+        missing_blocks: List[str] = []
+        if not can_rebuild:
+            for a in trello_actions:
+                block = format_trello_comment_block(a)
+                if not block:
+                    continue
+                if block in gh_comments_text:
+                    continue
+                raw = (a.get('data', {}) or {}).get('text', '').strip()
+                if raw and raw in gh_comments_text:
+                    continue
+                missing_blocks.append(block)
+
+        actions = []
+        if can_rebuild:
+            actions.append(f"rebuild_imported_comments ({len(trello_actions)} trello comments)")
+        elif wants_rebuild and skipped_rebuild_reason:
+            actions.append(f"skip_rebuild ({skipped_rebuild_reason})")
+        if missing_blocks:
+            to_add = min(len(missing_blocks), comment_batch_size) if comment_batch_size > 0 else len(missing_blocks)
+            suffix = "" if to_add == len(missing_blocks) else f" (batch {to_add}/{len(missing_blocks)})"
+            actions.append(f"add_missing_comments ({to_add}){suffix}")
+
+        if not actions:
+            print(f"[Sync] No changes needed: {issue_url}")
+            continue
+
+        planned += 1
+        print(f"[Sync] Plan: {issue_url} | bugs={','.join(bugs)} | actions={'; '.join(actions)}")
+
+        if dry_run:
+            continue
+
+        # Execute
+        if can_rebuild:
+            if comment_batch_size > 0 and len(trello_actions) > comment_batch_size:
+                print(f"[Sync] Refusing rebuild of {len(trello_actions)} comments with batch_size={comment_batch_size}. Increase comment_batch_size and rerun: {issue_url}")
+                ok = False
+                continue
+            imported_comment_ids = [
+                int(c['id']) for c in gh_comments
+                if _is_probably_trello_import_comment(_strip_leading_blockquote_markers(c.get('body') or '')) and c.get('id')
+            ]
+            print(f"[Sync] Rebuilding imported comments ({len(imported_comment_ids)} to delete): {issue_url}")
+            for cid in imported_comment_ids:
+                gh_client.delete_issue_comment_rest(repo, cid)
+                time.sleep(1)
+            for a in trello_actions:
+                block = format_trello_comment_block(a)
+                if not block:
+                    continue
+                gh_client.create_issue_comment_rest(repo, int(number), block)
+                time.sleep(2)
+
+            # After rebuild, nothing else to add
+            executed += 1
+            continue
+
+        if missing_blocks:
+            batch = missing_blocks[:comment_batch_size] if comment_batch_size > 0 else missing_blocks
+            print(f"[Sync] Adding {len(batch)} missing comments: {issue_url}")
+            for b in batch:
+                gh_client.create_issue_comment_rest(repo, int(number), b)
+                time.sleep(2)
+            if len(batch) < len(missing_blocks):
+                print(f"[Sync] Batch complete ({len(batch)}/{len(missing_blocks)}). Re-run to continue: {issue_url}")
+
+        executed += 1
+
+    print(f"[Sync] Done. Planned={planned}, Executed={executed}, DryRun={dry_run}")
+    return ok
+
+
+def _ensure_tmp_dir() -> str:
+    tmp_dir = os.path.join(os.getcwd(), "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    return tmp_dir
+
+
+def _parse_trello_card_url(card_url_or_short: str) -> Optional[str]:
+    # Returns Trello shortLink if present.
+    # Examples:
+    # - https://trello.com/c/naadMEL4
+    # - naadMEL4
+    s = (card_url_or_short or "").strip()
+    if not s:
+        return None
+    m = re.search(r"trello\.com/c/([A-Za-z0-9]+)", s)
+    if m:
+        return m.group(1)
+    if re.match(r"^[A-Za-z0-9]{6,}$", s):
+        return s
+    return None
+
+
+def _trello_comment_local_time(date_str: str) -> str:
+    # Trello dates are ISO8601 in UTC with Z
+    try:
+        dt_utc = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+        dt_local = dt_utc + timedelta(hours=8)
+        return dt_local.strftime("%Y-%m-%d %H:%M:%S") + " (Taiwan GMT+8)"
+    except ValueError:
+        try:
+            dt_utc = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+            dt_local = dt_utc + timedelta(hours=8)
+            return dt_local.strftime("%Y-%m-%d %H:%M:%S") + " (Taiwan GMT+8)"
+        except ValueError:
+            return date_str
+
+
+def _format_local_time(dt: Optional[datetime]) -> str:
+    if not dt:
+        return ""
+    try:
+        dt_local = dt + timedelta(hours=8)
+        return dt_local.strftime("%Y-%m-%d %H:%M:%S") + " (Taiwan GMT+8)"
+    except Exception:
+        return dt.isoformat()
+
+
+def _trello_objectid_created_at(object_id: Optional[str]) -> Optional[datetime]:
+    # Trello IDs are MongoDB ObjectId-like; first 8 hex chars are a UNIX seconds timestamp.
+    if not object_id:
+        return None
+    s = str(object_id)
+    if len(s) < 8:
+        return None
+    try:
+        ts = int(s[:8], 16)
+        return datetime.fromtimestamp(ts, tz=timezone.utc)
+    except Exception:
+        return None
+
+
+def _trello_card_checklists(board_data: Optional[Dict[str, Any]], card_id: Optional[str]) -> List[Dict[str, Any]]:
+    if not board_data or not card_id:
+        return []
+    out = []
+    for cl in (board_data.get('checklists', []) or []):
+        if cl.get('idCard') == card_id:
+            out.append(cl)
+    return out
+
+
+def format_trello_card_snapshot_block(board_data: Optional[Dict[str, Any]], card: Dict[str, Any]) -> Optional[str]:
+    """Return a single comment body containing Trello description + checklists."""
+    if not card:
+        return None
+
+    desc = (card.get('desc') or '').rstrip()
+    card_id = card.get('id')
+    created_at = _trello_objectid_created_at(card_id)
+    created_local = _format_local_time(created_at)
+
+    list_name = ""
+    id_list = card.get('idList')
+    for l in (board_data or {}).get('lists', []) or []:
+        if l.get('id') == id_list:
+            list_name = l.get('name') or ""
+            break
+
+    checklists = _trello_card_checklists(board_data, card_id)
+    if (not desc.strip()) and (not checklists):
+        return None
+
+    lines: List[str] = []
+    lines.append(f"**Trello snapshot**{(' on ' + created_local) if created_local else ''}:")
+    if list_name:
+        lines.append(f"List: {list_name}")
+    if card.get('url'):
+        lines.append(f"Card: {card.get('url')}")
+    lines.append("")
+
+    if desc.strip():
+        lines.append("## Description")
+        lines.append(desc)
+        lines.append("")
+
+    if checklists:
+        lines.append("## Checklists")
+        for cl in checklists:
+            cl_name = cl.get('name') or 'Checklist'
+            lines.append(f"### {cl_name}")
+            for item in (cl.get('checkItems') or []) or []:
+                state = (item.get('state') or '').lower()
+                checked = (state == 'complete')
+                prefix = "- [x]" if checked else "- [ ]"
+                name = (item.get('name') or '').rstrip()
+                lines.append(f"{prefix} {name}")
+            lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _quote_block(text: str) -> str:
+    # Quote each line for GitHub blockquote formatting
+    lines = (text or "").splitlines() or [""]
+    return "\n".join(["> " + line for line in lines])
+
+
+def _strip_leading_blockquote_markers(text: str) -> str:
+    """Remove leading '>' markers per line.
+
+    Older sync runs formatted imported comments as GitHub blockquotes ("> ").
+    The user wants these removed when (re)posting comments.
+    """
+    if not text:
+        return text
+    out_lines: List[str] = []
+    for line in str(text).splitlines(True):
+        if line.startswith("> "):
+            out_lines.append(line[2:])
+        elif line.startswith(">"):
+            # Handle legacy cases without a space
+            out_lines.append(line[1:] if not line.startswith("> ") else line[2:])
+        else:
+            out_lines.append(line)
+    return "".join(out_lines)
+
+
+def format_trello_comment_block(action: Dict[str, Any]) -> Optional[str]:
+    text = (action.get('data', {}) or {}).get('text', '')
+    if not text or not text.strip():
+        return None
+
+    author = (action.get('memberCreator', {}) or {}).get('fullName', 'Unknown')
+    username = (action.get('memberCreator', {}) or {}).get('username', '')
+    date_full = _trello_comment_local_time(action.get('date', '') or '')
+
+    header = f"**{author}**"
+    if username:
+        header += f" (@{username})"
+    header += f" on {date_full}"
+
+    # Format: header line, then body (no blockquote markers)
+    return f"{header}:\n{text.strip()}"
+
+
+def format_github_original_comment_block(comment: Dict[str, Any]) -> Optional[str]:
+    body = (comment.get('body') or '').rstrip()
+    if not body.strip():
+        return None
+    user = (comment.get('user') or {})
+    login = user.get('login') or 'unknown'
+    created_at = comment.get('created_at') or ''
+    created_local = _trello_comment_local_time(created_at) if created_at else created_at
+    header = f"**GitHub @{login}** on {created_local}"
+    return f"{header}:\n{body}"
+
+
+def _sleep_with_dots(seconds: int, label: str = ""):
+    if seconds <= 0:
+        return
+    if label:
+        print(f"{label} (sleep {seconds}s)...")
+    for _ in range(seconds):
+        time.sleep(1)
+
+
+def _load_trello_card_for_issue_title(config: Dict[str, Any], repo_full: str, issue_title: str) -> Optional[Dict[str, Any]]:
+    """Find the Trello card matching a GitHub issue title for a specific repo."""
+    for board in config.get('trello_boards', []) or []:
+        _, target_repo_url = get_gh_config(board)
+        if not target_repo_url:
+            continue
+        board_repo = GitHubClient.repo_from_url(target_repo_url)
+        if board_repo != repo_full:
+            continue
+
+        backup_file = get_backup_path(board)
+        if not os.path.exists(backup_file):
+            continue
+        try:
+            with open(backup_file, 'r') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        for card in data.get('cards', []) or []:
+            if card.get('closed'):
+                continue
+            if card.get('name') == issue_title:
+                return card
+    return None
+
+
+def _load_trello_context_for_issue_title(config: Dict[str, Any], repo_full: str, issue_title: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Find (board_data, card) matching a GitHub issue title for a specific repo."""
+    for board in config.get('trello_boards', []) or []:
+        _, target_repo_url = get_gh_config(board)
+        if not target_repo_url:
+            continue
+        board_repo = GitHubClient.repo_from_url(target_repo_url)
+        if board_repo != repo_full:
+            continue
+
+        backup_file = get_backup_path(board)
+        if not os.path.exists(backup_file):
+            continue
+        try:
+            with open(backup_file, 'r') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        for card in data.get('cards', []) or []:
+            if card.get('closed'):
+                continue
+            if card.get('name') == issue_title:
+                return data, card
+    return None, None
+
+
+def _load_trello_context_for_shortlink(config: Dict[str, Any], repo_full: str, short_link: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Find (board_data, card) matching a Trello shortLink for a specific repo."""
+    sl = (short_link or "").strip()
+    if not sl:
+        return None, None
+    for board in config.get('trello_boards', []) or []:
+        _, target_repo_url = get_gh_config(board)
+        if not target_repo_url:
+            continue
+        board_repo = GitHubClient.repo_from_url(target_repo_url)
+        if board_repo != repo_full:
+            continue
+
+        backup_file = get_backup_path(board)
+        if not os.path.exists(backup_file):
+            continue
+        try:
+            with open(backup_file, 'r') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        for card in data.get('cards', []) or []:
+            if card.get('closed'):
+                continue
+            if card.get('shortLink') == sl:
+                return data, card
+    return None, None
+
+
+def _backup_issue_refresh_payload(tmp_dir: str, repo_full: str, number: int, issue_rest: Dict[str, Any], gh_comments: List[Dict[str, Any]], trello_card: Optional[Dict[str, Any]]) -> str:
+    os.makedirs(tmp_dir, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = os.path.join(tmp_dir, f"issue_refresh_backup_{repo_full.replace('/', '_')}_{number}_{ts}.json")
+    payload = {
+        "generated_at": datetime.now().isoformat(),
+        "repo": repo_full,
+        "issue_number": number,
+        "issue_url": issue_rest.get('html_url'),
+        "issue_title": issue_rest.get('title'),
+        "issue_body": issue_rest.get('body'),
+        "github_comments": [
+            {
+                "id": c.get('id'),
+                "user": (c.get('user') or {}).get('login'),
+                "created_at": c.get('created_at'),
+                "updated_at": c.get('updated_at'),
+                "body": c.get('body'),
+            }
+            for c in gh_comments
+        ],
+        "trello_card": trello_card,
+    }
+    with open(path, 'w') as f:
+        f.write(json.dumps(payload, indent=2))
+    return path
+
+
+def _delete_issue_comments_batched(gh_client: 'GitHubClient', repo_full: str, comment_ids: List[int], delete_batch_size: int, batch_pause_seconds: int, per_delete_delay_seconds: float = 0.5):
+    total = len(comment_ids)
+    if total == 0:
+        return
+    print(f"[FreshReset] Deleting {total} comments...")
+    for idx, cid in enumerate(comment_ids, start=1):
+        gh_client.delete_issue_comment_rest(repo_full, int(cid))
+        time.sleep(per_delete_delay_seconds)
+        if delete_batch_size > 0 and (idx % delete_batch_size == 0) and (idx < total):
+            _sleep_with_dots(batch_pause_seconds, label=f"[FreshReset] Deleted {idx}/{total}")
+    print(f"[FreshReset] Deleted {total}/{total} comments.")
+
+
+def _create_issue_comments_batched(gh_client: 'GitHubClient', repo_full: str, number: int, bodies: List[str], create_batch_size: int, batch_pause_seconds: int, per_create_delay_seconds: float = 2.0):
+    total = len(bodies)
+    if total == 0:
+        return
+    print(f"[FreshReset] Creating {total} comments...")
+    for idx, body in enumerate(bodies, start=1):
+        gh_client.create_issue_comment_rest(repo_full, int(number), _strip_leading_blockquote_markers(body))
+        time.sleep(per_create_delay_seconds)
+        if create_batch_size > 0 and (idx % create_batch_size == 0) and (idx < total):
+            _sleep_with_dots(batch_pause_seconds, label=f"[FreshReset] Created {idx}/{total}")
+    print(f"[FreshReset] Created {total}/{total} comments.")
+
+
+def _fresh_reset_issue(config: Dict[str, Any], gh_client: 'GitHubClient', repo_full: str, number: int, dry_run: bool, create_batch_size: int, delete_batch_size: int, batch_pause_seconds: int, confirm: bool, trello_shortlink: Optional[str] = None) -> bool:
+    issue_rest = gh_client.get_issue_rest(repo_full, int(number))
+    if not issue_rest:
+        print(f"[FreshReset] Failed to fetch issue: {repo_full}#{number}")
+        return False
+    title = issue_rest.get('title') or ''
+    gh_comments = gh_client.list_issue_comments_rest(repo_full, int(number))
+
+    board_data, trello_card = (None, None)
+    if trello_shortlink:
+        board_data, trello_card = _load_trello_context_for_shortlink(config, repo_full, trello_shortlink)
+    if not trello_card:
+        board_data, trello_card = _load_trello_context_for_issue_title(config, repo_full, title)
+    trello_actions = []
+    if trello_card:
+        trello_actions = [a for a in (trello_card.get('actions', []) or []) if a.get('type') == 'commentCard']
+        trello_actions.sort(key=lambda a: a.get('date') or '')
+
+    # Preserve only user-authored (non-import) GitHub comments as source-of-truth.
+    non_import_gh_comments = [c for c in gh_comments if (c.get('body') or '').strip() and not _is_probably_trello_import_comment(c.get('body') or '')]
+
+    backup_dir = os.path.join(_ensure_tmp_dir(), "issue-refresh-backups")
+    backup_path = _backup_issue_refresh_payload(backup_dir, repo_full, int(number), issue_rest, gh_comments, trello_card)
+    print(f"[FreshReset] Backup written: {backup_path}")
+
+    # Build ordered timeline: Trello snapshot + Trello comments + GitHub user comments
+    timeline = []
+    if trello_card:
+        snap = format_trello_card_snapshot_block(board_data, trello_card)
+        if snap:
+            dt_snap = _trello_objectid_created_at(trello_card.get('id'))
+            if not dt_snap and trello_actions:
+                dt_first = _parse_iso8601(trello_actions[0].get('date'))
+                dt_snap = (dt_first - timedelta(seconds=1)) if dt_first else None
+            if dt_snap:
+                marker = f"<!-- rebuilt trello snapshot {trello_card.get('shortLink', '')} {trello_card.get('id', '')} -->\n"
+                timeline.append((dt_snap, marker + snap))
+    for a in trello_actions:
+        dt = _parse_iso8601(a.get('date'))
+        block = format_trello_comment_block(a)
+        if dt and block:
+            marker = f"<!-- rebuilt trello {a.get('id', '')} {a.get('date', '')} -->\n"
+            timeline.append((dt, marker + block))
+    for c in non_import_gh_comments:
+        dt = _parse_iso8601(c.get('created_at'))
+        block = format_github_original_comment_block(c)
+        if dt and block:
+            marker = f"<!-- rebuilt github {c.get('id', '')} {c.get('created_at', '')} -->\n"
+            timeline.append((dt, marker + block))
+    timeline.sort(key=lambda x: x[0])
+    bodies = [b for _, b in timeline]
+
+    print(f"[FreshReset] Plan for {issue_rest.get('html_url')}")
+    print(f"  - Trello comments: {len(trello_actions)}")
+    print(f"  - GitHub non-import comments to preserve (copied): {len(non_import_gh_comments)}")
+    print(f"  - Total comments to (re)create: {len(bodies)}")
+    if not trello_card:
+        print("[FreshReset] Warning: Trello card not found by title match; Trello comments will not be included.")
+
+    if dry_run:
+        print("[FreshReset] DryRun=True; no deletions/creations performed.")
+        return True
+
+    if not confirm:
+        print("[FreshReset] Refusing to proceed without --confirm-fresh-reset (this will permanently delete all current comments on the issue).")
+        return False
+
+    comment_ids = [int(c['id']) for c in gh_comments if c.get('id')]
+    _delete_issue_comments_batched(
+        gh_client,
+        repo_full,
+        comment_ids,
+        delete_batch_size=max(1, int(delete_batch_size)),
+        batch_pause_seconds=max(0, int(batch_pause_seconds)),
+    )
+
+    _create_issue_comments_batched(
+        gh_client,
+        repo_full,
+        int(number),
+        bodies,
+        create_batch_size=max(1, int(create_batch_size)),
+        batch_pause_seconds=max(0, int(batch_pause_seconds)),
+    )
+
+    print(f"[FreshReset] Completed: {issue_rest.get('html_url')}")
+    return True
+
+
+def _fresh_reset_issue_from_backup(
+    config: Dict[str, Any],
+    gh_client: 'GitHubClient',
+    backup_path: str,
+    dry_run: bool,
+    create_batch_size: int,
+    delete_batch_size: int,
+    batch_pause_seconds: int,
+    confirm: bool,
+) -> bool:
+    try:
+        with open(backup_path, 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"[FreshReset] Failed to read backup file: {backup_path} ({e})")
+        return False
+
+    repo_full = payload.get('repo')
+    number = int(payload.get('issue_number') or 0)
+    if not repo_full or not number:
+        print(f"[FreshReset] Invalid backup payload (missing repo/issue_number): {backup_path}")
+        return False
+
+    issue_rest = gh_client.get_issue_rest(repo_full, int(number))
+    if not issue_rest:
+        print(f"[FreshReset] Failed to fetch issue: {repo_full}#{number}")
+        return False
+
+    trello_card = payload.get('trello_card')
+    title = issue_rest.get('title') or ''
+    board_data, live_card = _load_trello_context_for_issue_title(config, repo_full, title)
+    if not trello_card:
+        trello_card = live_card
+
+    trello_actions = []
+    if trello_card:
+        trello_actions = [a for a in (trello_card.get('actions', []) or []) if a.get('type') == 'commentCard']
+        trello_actions.sort(key=lambda a: a.get('date') or '')
+
+    gh_comments_backup = payload.get('github_comments', []) or []
+    # Reconstruct a minimal "comment" shape expected by our formatter
+    gh_comment_objs = []
+    for c in gh_comments_backup:
+        gh_comment_objs.append({
+            'id': c.get('id'),
+            'created_at': c.get('created_at'),
+            'body': c.get('body'),
+            'user': {'login': c.get('user')},
+        })
+    non_import_gh_comments = [c for c in gh_comment_objs if (c.get('body') or '').strip() and not _is_probably_trello_import_comment(c.get('body') or '')]
+
+    # Always write a current-state backup as well (for safety)
+    current_comments = gh_client.list_issue_comments_rest(repo_full, int(number))
+    backup_dir = os.path.join(_ensure_tmp_dir(), "issue-refresh-backups")
+    current_backup_path = _backup_issue_refresh_payload(backup_dir, repo_full, int(number), issue_rest, current_comments, trello_card)
+    print(f"[FreshReset] Current-state backup written: {current_backup_path}")
+    print(f"[FreshReset] Using source backup: {backup_path}")
+
+    timeline = []
+    if trello_card:
+        snap = format_trello_card_snapshot_block(board_data, trello_card)
+        if snap:
+            dt_snap = _trello_objectid_created_at(trello_card.get('id'))
+            if not dt_snap and trello_actions:
+                dt_first = _parse_iso8601(trello_actions[0].get('date'))
+                dt_snap = (dt_first - timedelta(seconds=1)) if dt_first else None
+            if dt_snap:
+                marker = f"<!-- rebuilt trello snapshot {trello_card.get('shortLink', '')} {trello_card.get('id', '')} -->\n"
+                timeline.append((dt_snap, marker + snap))
+    for a in trello_actions:
+        dt = _parse_iso8601(a.get('date'))
+        block = format_trello_comment_block(a)
+        if dt and block:
+            marker = f"<!-- rebuilt trello {a.get('id', '')} {a.get('date', '')} -->\n"
+            timeline.append((dt, marker + block))
+    for c in non_import_gh_comments:
+        dt = _parse_iso8601(c.get('created_at'))
+        block = format_github_original_comment_block(c)
+        if dt and block:
+            marker = f"<!-- rebuilt github {c.get('id', '')} {c.get('created_at', '')} -->\n"
+            timeline.append((dt, marker + block))
+    timeline.sort(key=lambda x: x[0])
+    bodies = [b for _, b in timeline]
+
+    print(f"[FreshReset] Plan for {issue_rest.get('html_url')}")
+    print(f"  - Trello comments: {len(trello_actions)}")
+    print(f"  - GitHub non-import comments to preserve (copied) from backup: {len(non_import_gh_comments)}")
+    print(f"  - Total comments to (re)create: {len(bodies)}")
+
+    if dry_run:
+        print("[FreshReset] DryRun=True; no deletions/creations performed.")
+        return True
+
+    if not confirm:
+        print("[FreshReset] Refusing to proceed without --confirm-fresh-reset (this will permanently delete all current comments on the issue).")
+        return False
+
+    comment_ids = [int(c['id']) for c in current_comments if c.get('id')]
+    _delete_issue_comments_batched(
+        gh_client,
+        repo_full,
+        comment_ids,
+        delete_batch_size=max(1, int(delete_batch_size)),
+        batch_pause_seconds=max(0, int(batch_pause_seconds)),
+    )
+    _create_issue_comments_batched(
+        gh_client,
+        repo_full,
+        int(number),
+        bodies,
+        create_batch_size=max(1, int(create_batch_size)),
+        batch_pause_seconds=max(0, int(batch_pause_seconds)),
+    )
+    print(f"[FreshReset] Completed: {issue_rest.get('html_url')}")
+    return True
+
+
+_TRELLO_HEADER_RE = re.compile(
+    r"^(?:>\s*)?\*\*.+?\*\*(?:\s*\(@[^)]+\))?\s+on\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+\(Taiwan\s+GMT\+8\):\s*$",
+    re.MULTILINE,
+)
+
+
+def _count_trello_headers_in_gh_comment(body: str) -> int:
+    if not body:
+        return 0
+    return len(_TRELLO_HEADER_RE.findall(body))
+
+
+def _is_probably_trello_import_comment(body: str) -> bool:
+    if not body:
+        return False
+    normalized = _strip_leading_blockquote_markers(body)
+    if _TRELLO_HEADER_RE.search(normalized) or _TRELLO_HEADER_RE.search(body):
+        return True
+    # Legacy fallback: some earlier runs used non-per-line quoting.
+    if "(Taiwan GMT+8):" in normalized and "**" in normalized:
+        return True
+    return False
+
+
+def _split_batched_trello_comment(body: str) -> List[str]:
+    # Split a GH comment that contains multiple Trello-comment blocks into individual blocks.
+    # Each block begins with a quoted header line, followed by quoted lines until next header.
+    if not body:
+        return []
+    matches = list(_TRELLO_HEADER_RE.finditer(body))
+    if len(matches) <= 1:
+        return [body]
+    parts = []
+    for idx, m in enumerate(matches):
+        start = m.start()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(body)
+        chunk = body[start:end].strip("\n")
+        if chunk:
+            parts.append(chunk)
+    return parts
+
+
+def _parse_iso8601(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    # GitHub REST uses e.g. 2026-02-03T12:34:56Z
+    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ"):
+        try:
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _trello_latest_activity(card: Dict[str, Any]) -> Optional[datetime]:
+    # Prefer dateLastActivity; otherwise latest comment date.
+    d = _parse_iso8601(card.get('dateLastActivity'))
+    if d:
+        return d
+    actions = card.get('actions', []) or []
+    comment_dates = [_parse_iso8601(a.get('date')) for a in actions if a.get('type') == 'commentCard']
+    comment_dates = [d for d in comment_dates if d]
+    return max(comment_dates) if comment_dates else None
+
+
+def _extract_recent_trello_students(data: Dict[str, Any], days: int = 90) -> List[Dict[str, Any]]:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    out = []
+    for c in data.get('cards', []) or []:
+        if c.get('closed'):
+            continue
+        last = _trello_latest_activity(c)
+        if last and last > cutoff:
+            out.append({
+                "card_name": c.get('name'),
+                "dateLastActivity": c.get('dateLastActivity'),
+                "shortLink": c.get('shortLink'),
+                "url": c.get('url'),
+            })
+    out.sort(key=lambda x: x.get('dateLastActivity') or "", reverse=True)
+    return out
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Trello to GitHub Migration")
-    parser.add_argument("command", choices=["migrate", "all", "clear"], help="Command to run")
+    parser.add_argument("command", choices=["migrate", "all", "clear", "audit", "sync"], help="Command to run")
     parser.add_argument("--board", help="Filter by board name (case-insensitive substring match)")
     parser.add_argument("--card", help="Filter by Card URL or ShortLink")
+    parser.add_argument("--url", help="Single Trello card URL/shortLink OR GitHub issue URL (for audit/sync)")
+    parser.add_argument("--audit-file", help="Audit JSON file path (for sync)")
+    parser.add_argument("--dry-run", action="store_true", help="Do not write to GitHub; only print planned actions (sync)")
+    parser.add_argument("--active-days", type=int, default=90, help="Lookback window for 'still active on Trello' reporting (audit)")
+    parser.add_argument("--allow-active", action="store_true", help="Allow syncing issues even if GitHub has newer non-import activity than Trello (will not delete/rebuild; only backfill missing Trello comments)")
+    parser.add_argument("--comment-batch-size", type=int, default=None, help="Max GitHub comments to create per issue per run (sync). Overrides config.options.comment_batch_size")
+    parser.add_argument("--fresh-reset", action="store_true", help="DESTRUCTIVE: backup then delete ALL issue comments and re-create a complete ordered history (Trello + copied GitHub non-import comments). Requires --confirm-fresh-reset")
+    parser.add_argument("--confirm-fresh-reset", action="store_true", help="Required confirmation flag for --fresh-reset")
+    parser.add_argument("--fresh-reset-from-backup", help="Use a previous issue_refresh_backup_*.json as the source of truth for GitHub non-import comments (fresh-reset)")
+    parser.add_argument("--batch-pause-seconds", type=int, default=10, help="Pause between comment batches for create/delete to reduce rate-limit risk (fresh-reset)")
+    parser.add_argument("--delete-batch-size", type=int, default=50, help="How many deletes per batch before pausing (fresh-reset)")
     args = parser.parse_args()
 
     cfg = load_config()
+    if args.comment_batch_size is not None:
+        cfg.setdefault('options', {})
+        cfg['options']['comment_batch_size'] = int(args.comment_batch_size)
     verify_access(cfg)
     
     if args.command == "clear":
         clear_project_data(cfg, board_filter=args.board)
+    elif args.command == "audit":
+        audit_project(cfg, board_filter=args.board, card_or_issue=args.url or args.card, days_active=args.active_days)
+    elif args.command == "sync":
+        sync_from_audit(
+            cfg,
+            audit_file=args.audit_file,
+            card_or_issue=args.url or args.card,
+            dry_run=args.dry_run,
+            allow_active=args.allow_active,
+            fresh_reset=args.fresh_reset,
+            confirm_fresh_reset=args.confirm_fresh_reset,
+            batch_pause_seconds=args.batch_pause_seconds,
+            delete_batch_size=args.delete_batch_size,
+            fresh_reset_from_backup=args.fresh_reset_from_backup,
+        )
     else:
         # Note: We do NOT clear automatically anymore as per robust update request
         process_backups(cfg, mode=args.command, board_filter=args.board, card_filter=args.card)
