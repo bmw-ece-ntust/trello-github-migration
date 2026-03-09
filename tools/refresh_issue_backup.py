@@ -6,6 +6,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 
+def _repo_root() -> str:
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+
+
 def _gh_api_json(args: List[str]) -> Any:
     out = subprocess.check_output(["gh", "api", *args], text=True)
     return json.loads(out)
@@ -28,7 +32,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--out-dir",
-        default=os.path.join(os.getcwd(), "tmp", "issue-refresh-backups"),
+        default=os.path.join(_repo_root(), "back-ups", "tmp", "issue-refresh-backups"),
         help="Output directory for the refreshed backup JSON",
     )
     args = parser.parse_args()

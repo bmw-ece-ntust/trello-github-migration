@@ -1971,7 +1971,9 @@ def sync_from_audit(
 
 
 def _ensure_tmp_dir() -> str:
-    tmp_dir = os.path.join(os.getcwd(), "tmp")
+    # tmp/ was relocated under back-ups/ to keep repo root clean.
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    tmp_dir = os.path.join(repo_root, "back-ups", "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
     return tmp_dir
 

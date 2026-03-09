@@ -13,7 +13,7 @@ The sync mode is intentionally conservative when GitHub has newer non-import com
 
 ```bash
 # sync based on an audit file
-python trello-github-migration.py sync --audit-file tmp/audit_all_YYYYMMDD_HHMMSS.json
+python trello-github-migration.py sync --audit-file back-ups/tmp/audit_all_YYYYMMDD_HHMMSS.json
 
 # sync a single item by Trello card URL/shortLink or GitHub issue URL
 python trello-github-migration.py sync --url "https://github.com/org/repo/issues/379"
@@ -26,7 +26,7 @@ python trello-github-migration.py sync --url "https://github.com/org/repo/issues
 python trello-github-migration.py sync --url "https://github.com/org/repo/issues/379" --allow-active
 
 # limit comments created per issue per run
-python trello-github-migration.py sync --audit-file tmp/audit.json --comment-batch-size 50
+python trello-github-migration.py sync --audit-file back-ups/tmp/audit.json --comment-batch-size 50
 ```
 
 ## Inputs

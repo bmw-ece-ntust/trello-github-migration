@@ -36,14 +36,14 @@ python trello-github-migration.py audit --active-days 90
 
 ## Outputs
 
-- Audit JSON written to `tmp/` with pattern:
-  - `tmp/audit_<board or all>_<timestamp>.json`
+- Audit JSON written to `back-ups/tmp/` with pattern:
+  - `back-ups/tmp/audit_<board or all>_<timestamp>.json`
 
 The report includes `items[]` describing what is wrong and what is safe to sync.
 
 ## Main logic
 
-1. Create `tmp/` if needed.
+1. Create `back-ups/tmp/` if needed.
 2. For each board (optional filter):
    - load Trello backup
    - list GitHub issues (or, for a single issue URL, fetch just that issue)
@@ -64,7 +64,7 @@ The report includes `items[]` describing what is wrong and what is safe to sync.
 ```mermaid
 flowchart TD
   A[Start] --> B[Load config.yaml]
-  B --> C[Ensure tmp/ exists]
+  B --> C[Ensure back-ups/tmp/ exists]
   C --> D{For each board
   optional --board filter}
 
@@ -86,7 +86,7 @@ flowchart TD
   N --> O[Detect collisions + incomplete dates]
   O --> P[Check for newer non-import activity]
   P --> Q[Append audit item if bugs found]
-  Q --> R[Write tmp/audit_*.json]
+  Q --> R[Write back-ups/tmp/audit_*.json]
   R --> S[Done]
 ```
 
