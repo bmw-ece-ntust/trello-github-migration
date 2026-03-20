@@ -488,8 +488,53 @@ flowchart TD
 
 This section defines core software classes used in the migration implementation.
 
+### Source Tree (Production Handover)
+
+```text
+src/
+    controllers/
+        main_application.py
+        trello_backup_controller.py
+        github_migration_controller.py
+    models/
+        step_command.py
+        trello_client.py
+        github_client.py
+    views/
+        console_view.py
+        log_view.py
+```
+
 ```mermaid
 classDiagram
+        class MainApplicationController {
+                +run(board_name)
+                +run_backup(board_name)
+                +run_migration(board_name)
+        }
+
+    class MainApplication {
+        +LOG_DIR
+        +ensure_log_dir()
+        +migrate_legacy_root_logs()
+        +run_command(step)
+        +run_backup(board_name)
+        +run_migration(board_name)
+        +run(board_name)
+    }
+
+    class StepCommand {
+        +List command
+        +String description
+        +String log_prefix
+    }
+
+    class TrelloBackupController {
+        +cli_main()
+        +load_config(config_path)
+        +process_backups(config, force_refresh, skip_verify, board_filter, workers)
+    }
+
     class TrelloClient {
         +String api_key
         +String token
@@ -497,6 +542,26 @@ classDiagram
         +_request(method, endpoint, params)
         +get_board_data(board_id)
         +get_card_comments(card_id)
+    }
+
+    class GitHubMigrationController {
+        +cli_main()
+        +verify_access(config)
+        +process_backups(config, mode, board_filter, workers, verbose)
+        +clear_project_data(config, board_filter, dry_run)
+        +get_backup_path(board)
+        +get_gh_config(board)
+    }
+
+    class ConsoleView {
+        +section(title)
+        +print_text(text)
+        +print_stdout(text)
+        +print_stderr(text)
+    }
+
+    class LogView {
+        +write_logs(run_log_path, err_log_path, full_log_path, full_err_path, stdout_text, stderr_text)
     }
 
     class GitHubClient {
@@ -511,30 +576,12 @@ classDiagram
         +delete_issue(issue_url)
     }
 
-    class BackupProcessor {
-        +load_config(config_path)
-        +process_backups(config, force_refresh, skip_verify, board_filter, workers)
-        +dedupe_comment_actions(actions)
-        +resolve_worker_count(requested_workers, card_count)
-    }
-
-    class MigrationProcessor {
-        +verify_access(config)
-        +process_backups(config, mode, board_filter)
-        +clear_project_data(config, board_filter, dry_run)
-        +get_backup_path(board)
-        +get_gh_config(board)
-    }
-
-    class WorkflowRunner {
-        +run_command(command, description)
-        +main()
-    }
-
-    BackupProcessor --> TrelloClient : uses
-    MigrationProcessor --> GitHubClient : uses
-    WorkflowRunner --> BackupProcessor : triggers via CLI
-    WorkflowRunner --> MigrationProcessor : triggers via CLI
+    MainApplicationController --> MainApplication : invokes
+    MainApplication --> StepCommand : composes
+    MainApplication --> ConsoleView : uses
+    MainApplication --> LogView : uses
+    TrelloBackupController --> TrelloClient : uses
+    GitHubMigrationController --> GitHubClient : uses
 ```
 
 ### System Parameters
