@@ -4,6 +4,7 @@ import requests
 import time
 import os
 import sys
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from src.models.trello_client import TrelloClient
@@ -27,13 +28,47 @@ def get_backup_path(board):
     return os.path.join("back-ups", filename)
 
 
+def detect_available_threads():
+    """Detect practical thread capacity on this machine/process."""
+    logical_cpus = os.cpu_count() or 1
+    available = logical_cpus
+
+    # Linux containers/process affinity can expose fewer usable CPUs than os.cpu_count().
+    try:
+        affinity = os.sched_getaffinity(0)
+        if affinity:
+            available = min(available, len(affinity))
+    except (AttributeError, OSError):
+        pass
+
+    # Extra fallback for environments where os.cpu_count can return None.
+    try:
+        mp_count = multiprocessing.cpu_count()
+        if mp_count > 0:
+            available = min(available, mp_count)
+    except NotImplementedError:
+        pass
+
+    return max(1, int(available)), max(1, int(logical_cpus))
+
+
 def resolve_worker_count(requested_workers, card_count):
-    cpu_threads = os.cpu_count() or 1
+    available_threads, logical_threads = detect_available_threads()
     if requested_workers is None or requested_workers <= 0:
-        selected = cpu_threads
+        selected = available_threads
+        mode = "auto"
     else:
-        selected = min(requested_workers, cpu_threads)
-    return max(1, min(selected, max(1, card_count))), cpu_threads
+        selected = min(int(requested_workers), available_threads)
+        mode = "manual"
+
+    usable_for_work = max(1, min(selected, max(1, int(card_count))))
+    meta = {
+        "mode": mode,
+        "available_threads": available_threads,
+        "logical_threads": logical_threads,
+        "requested_threads": int(requested_workers or 0),
+    }
+    return usable_for_work, meta
 
 
 def dedupe_comment_actions(actions):
@@ -135,8 +170,20 @@ def process_backups(config, force_refresh=False, skip_verify=False, board_filter
                 actions_by_card[cid].append(a)
 
         active_cards = [c for c in cards if not c.get('closed', False)]
-        worker_count, cpu_threads = resolve_worker_count(workers, len(active_cards))
-        print(f"  CPU threads detected: {cpu_threads}. Using {worker_count} worker thread(s) for card comment checks.")
+        worker_count, worker_meta = resolve_worker_count(workers, len(active_cards))
+        print(
+            "  Thread detection: "
+            f"logical={worker_meta['logical_threads']}, "
+            f"available={worker_meta['available_threads']}, "
+            f"mode={worker_meta['mode']}"
+        )
+        if worker_meta["mode"] == "manual":
+            print(
+                "  Worker request: "
+                f"requested={worker_meta['requested_threads']}, "
+                f"applied={worker_count}"
+            )
+        print(f"  Using {worker_count} worker thread(s) for card comment checks.")
 
         # Seed card actions from board-wide export before parallel comment verification.
         for card in cards:

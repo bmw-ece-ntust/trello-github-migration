@@ -31,3 +31,17 @@ github_projects:
 # Options
 options:
   rate_limit_delay: 2
+  github_batch_size: 20
+  github_batch_pause_seconds: 1
+
+# 4. Review Root (single source of truth for lab SOP)
+review:
+  name: "Lab SOP"
+  root_url: "https://github.com/bmw-ece-ntust/SOP"
+  description: "Primary review root for this migration workflow"
+
+# 5. Student Source
+students:
+  # Supported: none, google_form_csv
+  source: "google_form_csv"
+  google_form_csv_url: "https://docs.google.com/spreadsheets/d/<sheet-id>/export?format=csv"

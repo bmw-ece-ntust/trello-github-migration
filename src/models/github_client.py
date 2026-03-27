@@ -4,6 +4,7 @@ import time
 import os
 import re
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class GitHubClient:
@@ -298,6 +299,81 @@ class GitHubClient:
                     os.remove(temp_path)
                 except OSError:
                     pass
+
+    def update_issue_comment(self, repo_full_name, comment_id, body):
+        payload = json.dumps({"body": body})
+        cmd = [
+            "api",
+            f"repos/{repo_full_name}/issues/comments/{int(comment_id)}",
+            "--method",
+            "PATCH",
+            "--input",
+            "-",
+        ]
+        out = self.run_gh_cmd(cmd, input_text=payload)
+        return bool(out)
+
+    def delete_issue_comment(self, repo_full_name, comment_id):
+        cmd = ["api", f"repos/{repo_full_name}/issues/comments/{int(comment_id)}", "--method", "DELETE"]
+        out = self.run_gh_cmd(cmd)
+        # gh api DELETE may return empty string on success.
+        return out is not None
+
+    def get_issue_comments_detailed(self, issue_url):
+        parsed = re.search(r"github\.com/([^/]+)/([^/]+)/issues/(\d+)", issue_url or "")
+        if not parsed:
+            return []
+        owner, repo, number = parsed.group(1), parsed.group(2), parsed.group(3)
+        endpoint = f"repos/{owner}/{repo}/issues/{number}/comments?per_page=100"
+        cmd = ["api", endpoint, "--paginate"]
+        out = self.run_gh_cmd(cmd)
+        if not out:
+            return []
+        try:
+            return json.loads(out)
+        except Exception:
+            return []
+
+    def add_comments_batch(self, issue_url, comment_bodies, batch_size=20, pause_seconds=1):
+        created = 0
+        if not issue_url:
+            return created
+
+        safe_batch_size = max(1, int(batch_size or 1))
+        for i in range(0, len(comment_bodies or []), safe_batch_size):
+            batch = comment_bodies[i:i + safe_batch_size]
+            for body in batch:
+                if self.add_comment(issue_url, body):
+                    created += 1
+            if pause_seconds > 0:
+                time.sleep(pause_seconds)
+        return created
+
+    def delete_issues_batch(self, issue_urls, batch_size=20, pause_seconds=1):
+        deleted = 0
+        safe_batch_size = max(1, int(batch_size or 1))
+        for i in range(0, len(issue_urls or []), safe_batch_size):
+            batch = issue_urls[i:i + safe_batch_size]
+            for issue_url in batch:
+                try:
+                    self.delete_issue(issue_url)
+                    deleted += 1
+                except Exception:
+                    continue
+            if pause_seconds > 0:
+                time.sleep(pause_seconds)
+        return deleted
+
+    def process_cards_concurrently(self, cards, worker_fn, max_workers):
+        results = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {executor.submit(worker_fn, c, i): c for i, c in enumerate(cards)}
+            for future in as_completed(future_map):
+                try:
+                    results.append(future.result())
+                except Exception as e:
+                    results.append({"ok": False, "error": str(e), "card": future_map[future].get("name", "Unknown")})
+        return results
     
     def delete_issue(self, issue_url):
         # gh issue delete <url> --yes

@@ -8,8 +8,18 @@ import re
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from datetime import datetime
+from datetime import datetime, timezone
 from src.models.github_client import GitHubClient
+from src.adapters.student_source import build_student_source
+from src.services.review_source import ConfigReviewSource
+from src.services.comment_mapping import build_comment_bodies
+from src.services.board_batch_scheduler import (
+    BoardBatchScheduler,
+    IssueCreateTask,
+    CommentCreateTask,
+    CommentUpdateTask,
+    ProjectAssignTask,
+)
 
 # Avoid Windows cp1252 encoding failures when logs include Unicode symbols.
 if hasattr(sys.stdout, "reconfigure"):
@@ -152,6 +162,25 @@ def collect_existing_comment_markers(issue_details):
         for m in marker_pattern.findall(body):
             markers.add(m)
     return markers
+
+
+def parse_iso_datetime(value):
+    text = (value or "").strip()
+    if not text:
+        return None
+    try:
+        if text.endswith("Z"):
+            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def extract_trello_latest_time_from_body(body):
+    match = re.search(r"Trello Latest Edit Time \(UTC\):\s*([^\n\r]+)", body or "")
+    if not match:
+        return None
+    return parse_iso_datetime(match.group(1).strip())
 
 # --- Configuration Loading ---
 def load_config(config_path="config.yaml"):
@@ -428,15 +457,21 @@ def clear_project_data(config, board_filter=None, dry_run=False):
 
         print(f"  Deleting {total_candidates} issue(s) in list batches...")
         deleted_count = 0
+        batch_size = int(config.get("options", {}).get("github_batch_size", 20) or 20)
+        pause_seconds = int(config.get("options", {}).get("github_batch_pause_seconds", 1) or 1)
+        global_queue = []
         for list_name in sorted(by_list.keys()):
             batch_urls = by_list[list_name]
             print(f"    [Batch] {list_name}: {len(batch_urls)} issue(s)")
-            for c_url in batch_urls:
-                print(f"      Deleting {c_url} ...", end="")
-                gh_client.delete_issue(c_url)
-                deleted_count += 1
-                print(" DONE")
-                time.sleep(0.3)
+            global_queue.extend(batch_urls)
+
+        print(f"  [Scheduler] Executing global delete queue for board: {len(global_queue)} issue(s)")
+        print(
+            "  [Scheduler] Queue Sizes -> "
+            f"create=0, update=0, delete={len(global_queue)}"
+        )
+        deleted_count = gh_client.delete_issues_batch(global_queue, batch_size=batch_size, pause_seconds=pause_seconds)
+        print(f"  [Scheduler] Deleted {deleted_count}/{len(global_queue)} issue(s)")
 
         print(f"  ✅ Cleanup complete for board '{board['name']}'. Deleted {deleted_count} issue(s).")
 
@@ -448,6 +483,11 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
     
     gh_conf = config['tokens']['github']
     gh_client = GitHubClient(gh_conf.get('token'))
+    student_source = build_student_source(config)
+    review_source = ConfigReviewSource(config)
+    review_policy = review_source.get_policy()
+    github_batch_size = int(config.get("options", {}).get("github_batch_size", 20) or 20)
+    github_batch_pause = int(config.get("options", {}).get("github_batch_pause_seconds", 1) or 1)
     
     for board in config['trello_boards']:
         if board_filter and board_filter.lower() not in board['name'].lower():
@@ -488,6 +528,7 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
             # -- Pre-fetch Data --
             existing_issues = gh_client.get_existing_issues(target_repo)
             existing_map = {i['title']: i for i in existing_issues}
+            queued_titles = set(existing_map.keys())
             title_lock = Lock()
             
             project_status_data = gh_client.get_project_status_field(target_url)
@@ -513,6 +554,9 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
             project_options = list(project_status_data['options'].keys()) if project_status_data else []
             if project_status_data:
                 print(f"  Detected Project Status Options: {project_options}")
+
+            # Strict scheduler: queue all write operations per board, execute in ordered batched phases.
+            scheduler = BoardBatchScheduler(batch_size=github_batch_size, pause_seconds=github_batch_pause)
             
             # -- Setup Labels --
             gh_client.create_label(target_repo, "Trello Import", "0E8A16")
@@ -522,6 +566,7 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
             # We want to iterate *Lists* as primary loop to verify columns
             
             lists_map = {l['id']: l['name'] for l in data['lists']}
+            member_map = {m.get('id'): m for m in data.get('members', []) if isinstance(m, dict)}
             # Group cards
             cards_by_list = {}
             seen_card_signatures = set()
@@ -604,15 +649,20 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                         "idx": idx + 1,
                         "name": card.get('name', 'Unknown'),
                         "mode": "reuse",
-                        "comments_added": 0,
-                        "project_added": False,
-                        "status_set": "N/A",
+                        "comments_queued": 0,
+                        "project_queued": False,
+                        "status_target": "N/A",
                         "ok": False,
                         "error": None,
                     }
+                    issue_key = f"{board.get('id', 'board')}:{card.get('id', 'card')}"
                     issue_url = None
+                    create_new_issue = False
                     with title_lock:
                         existing_issue = existing_map.get(card['name'])
+                        if not existing_issue and card['name'] not in queued_titles:
+                            queued_titles.add(card['name'])
+                            create_new_issue = True
 
                     if existing_issue:
                         issue_url = existing_issue['url']
@@ -623,12 +673,20 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                         ])
                         if trello_comments:
                             gh_details = gh_client.get_issue_comments(issue_url)
+                            gh_detailed_comments = gh_client.get_issue_comments_detailed(issue_url)
 
                             if gh_details:
                                 gh_body = gh_details.get('body', '') or ''
                                 gh_comments = [c.get('body', '') for c in gh_details.get('comments', [])]
                                 all_gh_text = gh_body + "\n" + "\n".join(gh_comments)
                                 existing_markers = collect_existing_comment_markers(gh_details)
+                                marker_to_comment = {}
+
+                                for c in gh_detailed_comments:
+                                    c_body = c.get("body", "") or ""
+                                    marker_match = re.search(r"\[TRELLO_ACTION_ID:([^\]]+)\]", c_body)
+                                    if marker_match:
+                                        marker_to_comment[marker_match.group(1)] = c
 
                                 gh_key_set = set()
                                 for c in gh_details.get('comments', []):
@@ -647,6 +705,7 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                                         gh_key_set.add(normalized)
 
                                 missing_actions = []
+                                update_tasks = []
                                 for tc in trello_comments:
                                     text = tc.get('data', {}).get('text', '').strip()
                                     if not text:
@@ -654,6 +713,25 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                                     action_id = tc.get('id')
                                     normalized_text = normalize_comment_text(text)
                                     if action_id and action_id in existing_markers:
+                                        gh_comment = marker_to_comment.get(action_id)
+                                        if gh_comment:
+                                            desired_body = build_comment_bodies([tc], include_source_link=True)[0]
+                                            current_body = (gh_comment.get("body") or "").strip()
+                                            if desired_body != current_body:
+                                                trello_ts = parse_iso_datetime(tc.get("date"))
+                                                gh_meta_ts = extract_trello_latest_time_from_body(current_body)
+                                                gh_updated_ts = parse_iso_datetime(gh_comment.get("updated_at"))
+
+                                                should_update = False
+                                                if not gh_meta_ts:
+                                                    should_update = True
+                                                elif trello_ts and gh_meta_ts and trello_ts >= gh_meta_ts:
+                                                    should_update = True
+                                                elif trello_ts and gh_updated_ts and trello_ts >= gh_updated_ts:
+                                                    should_update = True
+
+                                                if should_update and gh_comment.get("id"):
+                                                    update_tasks.append((int(gh_comment["id"]), desired_body))
                                         continue
                                     if normalized_text and normalized_text in gh_key_set:
                                         continue
@@ -661,51 +739,79 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                                         continue
                                     missing_actions.append(tc)
 
+                                for comment_id, desired_body in update_tasks:
+                                    scheduler.queue_comment_update(
+                                        CommentUpdateTask(repo=target_repo, comment_id=comment_id, body=desired_body)
+                                    )
+
                                 if missing_actions:
-                                    bundle_body = build_comment_bundle(missing_actions)
-                                    gh_client.add_comment(issue_url, bundle_body)
-                                    result["comments_added"] = len(missing_actions)
+                                    comment_bodies = build_comment_bodies(missing_actions, include_source_link=True)
+                                    for body in comment_bodies:
+                                        scheduler.queue_comment_create(
+                                            CommentCreateTask(issue_url=issue_url, body=body)
+                                        )
+                                    result["comments_queued"] = len(comment_bodies) + len(update_tasks)
+                                else:
+                                    result["comments_queued"] = len(update_tasks)
                             elif verbose:
                                 result["error"] = "Failed to fetch issue details for comment verification"
-                    else:
+                    elif create_new_issue:
                         result["mode"] = "create"
                         desc = card.get('desc', '')
                         comments = dedupe_and_sort_comment_actions([
                             a for a in card.get('actions', []) if a.get('type') == 'commentCard'
                         ])
 
+                        trello_member_ids = card.get("idMembers") or []
+                        inferred_member = member_map.get(trello_member_ids[0], {}) if trello_member_ids else {}
+                        student_profile = student_source.get_profile(inferred_member)
+
                         body = f"{desc}\n\n---\n*Imported from Trello List: {list_name}*"
+                        if review_policy:
+                            body += f"\nReview Root: {review_policy.url}"
+                        if student_profile and student_profile.github_username:
+                            body += f"\nImported on behalf of: @{student_profile.github_username}"
+                        elif student_profile and student_profile.display_name:
+                            body += f"\nImported on behalf of: {student_profile.display_name}"
+
                         if len(body) > 60000:
                             body = body[:60000] + "\n\n... (Truncated due to length limit) ..."
 
                         final_labels = ["Trello Import", list_label]
-                        issue_url = gh_client.create_issue(target_repo, card['name'], body, final_labels)
-                        if issue_url:
-                            with title_lock:
-                                existing_map[card['name']] = {'title': card['name'], 'url': issue_url}
-                            if comments:
-                                bundle_body = build_comment_bundle(comments, "Trello Imported Comment Bundle")
-                                gh_client.add_comment(issue_url, bundle_body)
-                                result["comments_added"] = len(comments)
-                        else:
-                            result["error"] = "Failed to create issue"
-
-                    if not issue_url:
+                        scheduler.queue_issue_create(
+                            IssueCreateTask(
+                                issue_key=issue_key,
+                                repo=target_repo,
+                                title=card['name'],
+                                body=body,
+                                labels=final_labels,
+                            )
+                        )
+                        if comments:
+                            comment_bodies = build_comment_bodies(comments, include_source_link=True)
+                            for body in comment_bodies:
+                                scheduler.queue_comment_create(CommentCreateTask(issue_key=issue_key, body=body))
+                            result["comments_queued"] = len(comment_bodies)
+                    else:
+                        result["error"] = "Duplicate title detected in queued workload"
                         return result
 
-                    project_item = gh_client.add_issue_to_project(target_url, issue_url)
-                    if project_item:
-                        result["project_added"] = True
-                        if project_status_data and column_exists:
-                            success = gh_client.set_item_status(target_url, project_item['id'], project_status_data, list_name)
-                            result["status_set"] = "OK" if success else "Failed"
-                    else:
-                        result["error"] = "Failed to add issue to project"
+                    scheduler.queue_project_assign(
+                        ProjectAssignTask(
+                            issue_key=None if issue_url else issue_key,
+                            issue_url=issue_url,
+                            project_url=target_url,
+                            list_name=list_name,
+                            column_exists=bool(column_exists),
+                        )
+                    )
+                    result["project_queued"] = True
+                    result["status_target"] = list_name if column_exists else "Default"
 
                     delay = config.get('options', {}).get('rate_limit_delay', 2)
                     if delay > 0:
                         time.sleep(delay)
-                    result["ok"] = bool(project_item)
+                    result["ok"] = True
                     return result
 
                 with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -718,12 +824,12 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                             if card_result.get("ok"):
                                 processed_count += 1
                             action_tag = "reused" if card_result.get("mode") == "reuse" else "created"
-                            comment_tag = card_result.get("comments_added", 0)
-                            project_tag = "OK" if card_result.get("project_added") else "FAILED"
-                            status_tag = card_result.get("status_set", "N/A")
+                            comment_tag = card_result.get("comments_queued", 0)
+                            project_tag = "QUEUED" if card_result.get("project_queued") else "FAILED"
+                            status_tag = card_result.get("status_target", "N/A")
                             card_name = card_result.get("name", "Unknown")
                             print(
-                                f"    [{completed_count}/{total_cards}] {card_name} | {action_tag} | comments+{comment_tag} | project:{project_tag} | status:{status_tag}"
+                                f"    [{completed_count}/{total_cards}] {card_name} | {action_tag} | comments~{comment_tag} | project:{project_tag} | status_target:{status_tag}"
                             )
                             if verbose and card_result.get("error"):
                                 print(f"      [Detail] {card_result['error']}")
@@ -736,6 +842,21 @@ def process_backups(config, mode="all", board_filter=None, workers=0, verbose=Fa
                      print(f"    -> Check Column here: {target_url}?filterQuery=status%3A%22{list_name.replace(' ', '+')}%22")
                 else: 
                      print(f"    -> Link to Project: {target_url}")
+
+            # Execute strict queued writes once per board after all card planning is done.
+            scheduler.print_plan(board.get('name', 'Unknown Board'))
+            print("\n  [Scheduler] Executing globally queued board operations in strict batches...")
+            batch_result = scheduler.execute(gh_client, project_status_data=project_status_data)
+            print(
+                "  [Scheduler] Result: "
+                f"issues_created={batch_result.created_issues}, "
+                f"comments_created={batch_result.created_comments}, "
+                f"comments_updated={batch_result.updated_comments}, "
+                f"project_assignments={batch_result.project_assignments}, "
+                f"status_updates={batch_result.status_updates}, "
+                f"deleted={batch_result.deleted_items}, "
+                f"failed={batch_result.failed}"
+            )
 
 def cli_main():
     import argparse
